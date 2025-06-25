@@ -4,21 +4,26 @@
   "version": "1.0",
   "description": "Télécharge depuis YouTube Music automatiquement via y2mate.",
   "permissions": ["tabs", "scripting", "activeTab", "clipboardRead"],
-  "host_permissions": ["https://music.youtube.com/*", "https://y2mate.nu/*"],
+  "host_permissions": ["<all_urls>", "https://music.youtube.com/*", "https://y2mate.nu/*"],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
-  {
-    "matches": ["https://music.youtube.com/*"],
-    "js": ["ytmusic.js"]
-  },
-  {
-    "matches": ["https://y2mate.nu/*"],
-    "js": ["y2mate.js"],
-    "run_at": "document_idle"
-  }
-],
+    {
+      "matches": ["https://music.youtube.com/*"],
+      "js": ["ytmusic.js"]
+    },
+    {
+      "matches": ["https://y2mate.nu/*"],
+      "js": ["y2mate.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["selector.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "icons": {
     "48": "icon48.png"
   },
