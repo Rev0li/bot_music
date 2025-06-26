@@ -301,40 +301,41 @@ class AutoClickerMainWindow(QMainWindow):
             self.action_list.takeItem(row)
             del self.action_sequence[row]
 
-    def trigger_save_as(self):
-        base_path, artiste, album, song = self.get_song_metadata()
-        full_dir = os.path.join(base_path, artiste, album)
-        os.makedirs(full_dir, exist_ok=True)
-        full_path = os.path.join(full_dir, song)
-        self.status_label.setText(f'Attente de la fenêtre Save As...')
-        try:
-            print(f'[PY] Remplissage Save As avec : {full_path}')
-            windows = Desktop(backend="win32").windows()
-            for w in windows:
-                if "Save As" in w.window_text() or "Enregistrer sous" in w.window_text():
-                    dlg = w
-                    break
-            else:
-                print('[PY] Impossible de trouver la fenêtre Save As pour remplir ! (pywinauto)')
-                self.status_label.setText('Fallback pyautogui : Fenêtre Save As non trouvée, tentative auto...')
-                import time
-                import pyautogui
-                time.sleep(1)  # Laisse le temps à la fenêtre d'être devant
-                pyautogui.write(full_path)
-                pyautogui.press('enter')
-                print(f'[PY] (pyautogui) Fichier enregistré : {full_path}')
-                self.status_label.setText(f'(pyautogui) Fichier enregistré : {full_path}')
-                return
-            # Remplit le champ nom de fichier (pywinauto)
-            file_edit = dlg.child_window(class_name="Edit")
-            file_edit.set_edit_text(full_path)
-            save_btn = dlg.child_window(title_re="Enregistrer|Save", control_type="Button")
-            save_btn.click()
-            print(f'[PY] Fichier enregistré : {full_path}')
-            self.status_label.setText(f'Fichier enregistré : {full_path}')
-        except Exception as e:
-            print('[PY] Erreur Save As :', e)
-            self.status_label.setText(f'Erreur Save As : {e}')
+def trigger_save_as(self):
+    base_path, artiste, album, song = self.get_song_metadata()
+    full_dir = os.path.join(base_path, artiste, album)
+    os.makedirs(full_dir, exist_ok=True)
+    full_path = os.path.join(full_dir, song)
+    self.status_label.setText(f'Attente de la fenêtre Save As...')
+    try:
+        print(f'[PY] Remplissage Save As avec : {full_path}')
+        # --- MODIFICATION ICI ---
+        windows = Desktop(backend="uia").windows()
+        for w in windows:
+            if "Save As" in w.window_text() or "Enregistrer sous" in w.window_text():
+                dlg = w
+                break
+        else:
+            print('[PY] Impossible de trouver la fenêtre Save As pour remplir ! (pywinauto)')
+            self.status_label.setText('Fallback pyautogui : Fenêtre Save As non trouvée, tentative auto...')
+            import time
+            import pyautogui
+            time.sleep(1)
+            pyautogui.write(full_path)
+            pyautogui.press('enter')
+            print(f'[PY] (pyautogui) Fichier enregistré : {full_path}')
+            self.status_label.setText(f'(pyautogui) Fichier enregistré : {full_path}')
+            return
+        file_edit = dlg.child_window(class_name="Edit")
+        file_edit.set_edit_text(full_path)
+        save_btn = dlg.child_window(title_re="Enregistrer|Save", control_type="Button")
+        save_btn.click()
+        print(f'[PY] Fichier enregistré : {full_path}')
+        self.status_label.setText(f'Fichier enregistré : {full_path}')
+    except Exception as e:
+        print('[PY] Erreur Save As :', e)
+        self.status_label.setText(f'Erreur Save As : {e}')
+
 
     def get_song_metadata(self):
         # Pour l'instant, lit depuis l'UI, mais pourra lire depuis un fichier/variable partagée plus tard
@@ -349,18 +350,24 @@ class AutoClickerMainWindow(QMainWindow):
             print('[PY] Watcher Save As démarré, attente de la fenêtre...')
             import time
             time.sleep(1)  # Laisse le temps à la fenêtre de s'ouvrir
-            while True:
-                try:
-                    windows = Desktop(backend="win32").windows()
-                    for w in windows:
-                        print('[PY] Fenêtre détectée:', w.window_text())
-                        if "Save As" in w.window_text() or "Enregistrer sous" in w.window_text():
-                            print('[PY] Fenêtre Save As détectée !')
-                            self.trigger_save_as()
-                            return
-                except Exception as e:
-                    print('[PY] Erreur dans watcher Save As:', e)
-                time.sleep(1)
+def watcher():
+    print('[PY] Watcher Save As démarré, attente de la fenêtre...')
+    import time
+    time.sleep(1)
+    while True:
+        try:
+            # --- MODIFICATION ICI AUSSI ---
+            windows = Desktop(backend="uia").windows()
+            for w in windows:
+                print('[PY] Fenêtre détectée:', w.window_text())
+                if "Save As" in w.window_text() or "Enregistrer sous" in w.window_text():
+                    print('[PY] Fenêtre Save As détectée !')
+                    self.trigger_save_as()
+                    return
+        except Exception as e:
+            print('[PY] Erreur dans watcher Save As:', e)
+        time.sleep(1)
+
         threading.Thread(target=watcher, daemon=True).start()
 
     def toggle_save_if(self):
