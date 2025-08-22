@@ -1,0 +1,18 @@
+# Dépendances
+node_modules/
+npm-debug.log*
+
+# Données sensibles
+config/secrets.json
+*.env
+
+# Logs
+logs/*.log
+
+# Données temporaires
+data/temp/
+output/temp/
+
+# OS
+.DS_Store
+Thumbs.db
