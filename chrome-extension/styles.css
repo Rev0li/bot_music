@@ -1,0 +1,103 @@
+/* styles.css - Styles pour l'extension */
+
+/* Bouton flottant */
+.auto-click-floating-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 20px;
+  
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+  
+  /* Animation de pulsation */
+  animation: pulse 2s infinite;
+}
+
+.auto-click-floating-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.auto-click-floating-btn:active {
+  transform: translateY(0);
+  animation: none;
+}
+
+/* Animation de pulsation */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  }
+  50% {
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  }
+  100% {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  }
+}
+
+/* Notifications */
+.auto-click-notification {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 10001;
+  
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  
+  max-width: 300px;
+  word-wrap: break-word;
+  
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  
+  animation: slideIn 0.3s ease-out;
+}
+
+.auto-click-notification.success {
+  background: #d4edda;
+  color: #155724;
+  border-left: 4px solid #28a745;
+}
+
+.auto-click-notification.error {
+  background: #f8d7da;
+  color: #721c24;
+  border-left: 4px solid #dc3545;
+}
+
+.auto-click-notification.warning {
+  background: #fff3cd;
+  color: #856404;
+  border-left: 4px solid #ffc107;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Style pour les éléments cliqués (effet visuel temporaire) */
+[style*="border: 3px solid red"] {
+  transition: border 0.3s ease !important;
+}

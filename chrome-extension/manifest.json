@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Share V2",
+  "version": "2.0",
+  "description": "Extension pour extraire et partager automatiquement les infos de YouTube Music",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "clipboardRead",
+    "clipboardWrite",
+    "tabs"
+  ],
+  
+  "host_permissions": [
+    "https://music.youtube.com/*",
+    "https://*/*"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://music.youtube.com/*",
+        "https://*/*"
+      ],
+      "js": [
+        "config.js",
+        "modules/utils.js",
+        "modules/data-extractor.js",
+        "modules/page-opener.js",
+        "content.js"
+      ],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Auto Share V2"
+  },
+  
+  "icons": {
+    "48": "icon48.png"
+  }
+}

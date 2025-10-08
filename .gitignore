@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Chrome Extension (keep source, ignore packed)
+*.crx
+*.pem
+
+# Music files (don't commit actual MP3s)
+*.mp3
+*.wav
+*.flac
+
+# User-specific
+config.local.js
+settings.local.json

@@ -1,0 +1,7 @@
+# Requirements pour Music Organizer Pro
+# Installation: pip install -r requirements.txt
+
+mutagen>=1.45.1
+pyautogui>=0.9.53
+pyperclip>=1.8.2
+pywin32>=305
