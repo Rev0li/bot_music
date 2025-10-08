@@ -88,34 +88,74 @@ Perfect music library! 🎉
 
 ---
 
-## 💡 Tips
+## 📚 Documentation
 
-- **Start with V1** if you're new to Chrome extensions
-- **V2 requires configuration** - edit `V2/config.js` first
-- **Both versions work independently** - you can install both
-- **Keep V1 as reference** while learning V2
+### **Chrome Extension**
+- [`chrome-extension/README.md`](chrome-extension/README.md) - Setup and usage guide
 
----
-
-## 🎉 What You'll Learn
-
-**From V1:**
-- Chrome extension basics
-- DOM manipulation
-- Event handling
-- Debugging techniques
-
-**From V2:**
-- Modular architecture
-- Chrome APIs (Storage, Tabs, Messaging)
-- Async/await patterns
-- Cross-page communication
-- Professional code organization
+### **Python Organizer**
+- [`python-organizer/docs/00_INDEX.md`](python-organizer/docs/00_INDEX.md) - Complete documentation
+- [`python-organizer/docs/01_QUICK_START.md`](python-organizer/docs/01_QUICK_START.md) - 5-minute setup
+- [`python-organizer/docs/02_INSTALLATION.md`](python-organizer/docs/02_INSTALLATION.md) - Detailed installation
+- [`python-organizer/docs/03_USER_GUIDE.md`](python-organizer/docs/03_USER_GUIDE.md) - How to use
 
 ---
 
-**Happy coding! 🚀**
+## 🎵 Example Result
 
-Choose your version and get started:
-- [V1 - Simple Clicker](./V1/)
-- [V2 - Full Automation](./V2/)
+**Before:**
+```
+Downloads/
+└── art=Drake alb=Views N=OneDance Y=2016.mp3
+```
+
+**After:**
+```
+Music/
+└── Drake/
+    └── Views/
+        └── OneDance.mp3 (with ID3 tags)
+```
+
+---
+
+## 🛠️ Tech Stack
+
+- **Chrome Extension:** JavaScript ES6+, Chrome APIs
+- **Python Organizer:** Python 3.8+, Tkinter, mutagen, pyautogui
+
+---
+
+## 🐛 Troubleshooting
+
+### Chrome Extension
+- **Button not visible:** Refresh YouTube Music page
+- **Y2Mate not opening:** Check popup blockers
+- **Download not starting:** Try different song
+
+### Python Organizer
+- **Scanner not detecting:** `pip install pywin32`
+- **Auto-paste not working:** `pip install pyautogui pyperclip`
+- **No songs found:** Check filename format
+
+---
+
+## ✅ Success Indicators
+
+You know it's working when:
+- ✅ Chrome extension shows "🎯 Auto Share V2" button
+- ✅ Y2Mate opens in background and converts automatically
+- ✅ Python monitor detects "Save As" dialog
+- ✅ Filename is pasted automatically
+- ✅ Files are organized into Artist/Album structure
+- ✅ MP3 tags are updated correctly
+
+---
+
+## 🎉 Result
+
+**A completely automated music downloading and organizing system!**
+
+From YouTube Music to perfectly organized library in just a few clicks.
+
+**Happy music organizing! 🎵**
