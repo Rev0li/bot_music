@@ -19,10 +19,21 @@ try:
 except ImportError:
     WIN32_AVAILABLE = False
 
+try:
+    import pyperclip
+    PYPERCLIP_AVAILABLE = True
+except ImportError:
+    PYPERCLIP_AVAILABLE = False
+
+try:
+    from .notification_helper import SmartNotifier
+    NOTIFICATION_AVAILABLE = True
+except ImportError:
+    NOTIFICATION_AVAILABLE = False
 
 class AutoSaver:
     """
-    Automatise le processus de sauvegarde dans la fenêtre "Enregistrer sous".
+    Automatise la sauvegarde dans la fenêtre "Enregistrer sous".
     """
     
     def __init__(self, log_callback: Optional[Callable] = None):
@@ -34,6 +45,12 @@ class AutoSaver:
         """
         self.log_callback = log_callback or print
         self.target_path = "C:\\Users\\Molim\\Music\\itunes"  # Chemin cible à vérifier
+        
+        # Notificateur intelligent
+        if NOTIFICATION_AVAILABLE:
+            self.notifier = SmartNotifier(log_callback=self.log)
+        else:
+            self.notifier = None
         
         # Configuration pyautogui
         pyautogui.FAILSAFE = True  # Déplacer la souris dans le coin arrête tout
@@ -52,6 +69,7 @@ class AutoSaver:
     def activate_save_window(self) -> bool:
         """
         Active la fenêtre "Save As" pour qu'elle reçoive les événements clavier.
+        Utilise plusieurs méthodes pour forcer l'activation.
         
         Returns:
             bool: True si fenêtre trouvée et activée, False sinon
@@ -78,12 +96,32 @@ class AutoSaver:
                 window_title = win32gui.GetWindowText(hwnd)
                 self.log(f"✅ Fenêtre trouvée: {window_title}")
                 
-                # Activer la fenêtre (la mettre au premier plan)
+                # Méthode simple: Juste essayer SetForegroundWindow
                 self.log("🎯 Activation de la fenêtre...")
-                win32gui.SetForegroundWindow(hwnd)
-                time.sleep(0.3)
-                self.log("✅ Fenêtre activée")
-                return True
+                try:
+                    # Restaurer si minimisée
+                    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                    time.sleep(0.2)
+                    
+                    # Activer au premier plan
+                    win32gui.SetForegroundWindow(hwnd)
+                    time.sleep(0.5)
+                    
+                    # Vérifier si ça a marché
+                    current_window = win32gui.GetForegroundWindow()
+                    if current_window == hwnd:
+                        self.log("✅ Fenêtre activée avec succès!")
+                        return True
+                    else:
+                        current_title = win32gui.GetWindowText(current_window)
+                        self.log(f"⚠️ Fenêtre toujours pas active. Fenêtre actuelle: {current_title}")
+                        self.log("💡 Cliquez manuellement sur la fenêtre 'Save As' si nécessaire")
+                        return False
+                        
+                except Exception as e:
+                    self.log(f"⚠️ Erreur lors de l'activation: {str(e)}")
+                    return False
+                
             else:
                 self.log("⚠️ Fenêtre 'Save As' non trouvée")
                 return False
@@ -91,6 +129,105 @@ class AutoSaver:
         except Exception as e:
             self.log(f"⚠️ Erreur lors de l'activation: {str(e)}")
             return False
+    
+    def smart_auto_save(self, verify_path: bool = True, auto_click_save: bool = False) -> bool:
+        """
+        Version intelligente avec notifications pour contourner les restrictions Windows.
+        
+        Args:
+            verify_path (bool): Vérifier que le chemin contient "Music/itunes"
+            auto_click_save (bool): Cliquer automatiquement sur Save
+            
+        Returns:
+            bool: True si succès, False sinon
+        """
+        try:
+            self.log("🧠 Automatisation intelligente avec notifications...")
+            
+            # Étape 1: Trouver la fenêtre Save As
+            save_window_title = self._find_save_window_title()
+            if not save_window_title:
+                self.log("❌ Aucune fenêtre 'Save As' trouvée")
+                return False
+            
+            # Étape 2: Notification à l'utilisateur
+            if self.notifier:
+                self.notifier.show_save_as_detected(save_window_title)
+                self.log("📢 Notification affichée à l'utilisateur")
+            
+            # Étape 3: Notification avant collage
+            if self.notifier:
+                self.notifier.show_paste_ready()
+            else:
+                self.log("⏳ Attente de 3 secondes...")
+                time.sleep(3)
+            
+            # Étape 4: Coller le nom (l'utilisateur a eu le temps d'activer la fenêtre)
+            self.log("📋 Collage du nom de fichier...")
+            pyautogui.hotkey('ctrl', 'v')
+            self.log("✅ Ctrl+V envoyé")
+            time.sleep(1)
+            
+            # Étape 5: Vérification du chemin si demandé
+            if verify_path:
+                self.log("🔍 Vérification du chemin...")
+                path_ok = self.verify_save_path()
+                if not path_ok:
+                    self.log("⚠️ Chemin incorrect détecté")
+                    if self.notifier:
+                        self.notifier.show_manual_action_needed(
+                            "Naviguez vers le dossier Music\\itunes avant de sauvegarder"
+                        )
+                    return False
+            
+            # Étape 6: Clic sur Save si demandé
+            if auto_click_save:
+                self.log("💾 Tentative de clic sur Save...")
+                if self.notifier:
+                    self.notifier.show_manual_action_needed(
+                        "Cliquez sur le bouton 'Save' / 'Enregistrer' pour finaliser"
+                    )
+                else:
+                    # Essayer quand même
+                    success = self.click_save_button()
+                    if not success:
+                        self.log("⚠️ Impossible de cliquer sur Save automatiquement")
+                        self.log("💡 Cliquez manuellement sur le bouton Save")
+            
+            self.log("✅ Automatisation intelligente terminée")
+            return True
+            
+        except Exception as e:
+            self.log(f"❌ Erreur dans smart_auto_save: {str(e)}")
+            return False
+    
+    def _find_save_window_title(self) -> Optional[str]:
+        """
+        Trouve le titre de la fenêtre Save As active.
+        
+        Returns:
+            str: Titre de la fenêtre ou None si non trouvée
+        """
+        if not WIN32_AVAILABLE:
+            return None
+            
+        try:
+            def find_window_callback(hwnd, windows):
+                if win32gui.IsWindowVisible(hwnd):
+                    title = win32gui.GetWindowText(hwnd)
+                    if ("wants to save" in title.lower() or 
+                        "save as" in title.lower() or 
+                        "enregistrer" in title.lower()):
+                        windows.append(title)
+            
+            windows = []
+            win32gui.EnumWindows(find_window_callback, windows)
+            
+            return windows[0] if windows else None
+            
+        except Exception as e:
+            self.log(f"⚠️ Erreur lors de la recherche de fenêtre: {str(e)}")
+            return None
     
     def auto_save(self, verify_path: bool = True, auto_click_save: bool = False) -> bool:
         """
@@ -113,22 +250,24 @@ class AutoSaver:
             self.log(f"   - verify_path: {verify_path}")
             self.log(f"   - auto_click_save: {auto_click_save}")
             
-            # Étape 1: Activer la fenêtre "Save As"
+            # Étape 1: Activer la fenêtre "Save As" (CRITIQUE!)
             self.log("🎯 Activation de la fenêtre 'Save As'...")
             activated = self.activate_save_window()
             if not activated:
-                self.log("⚠️ Impossible d'activer la fenêtre, tentative quand même...")
+                self.log("⚠️ ATTENTION: Impossible d'activer la fenêtre automatiquement!")
+                self.log("💡 Tentative de collage quand même (risque de coller ailleurs)")
+                self.log("🔔 Assurez-vous que la fenêtre 'Save As' est active manuellement")
             
             # Attendre un peu après activation
-            self.log("⏳ Attente de 0.5 seconde...")
-            time.sleep(0.5)
+            self.log("⏳ Attente de 1 seconde pour stabiliser...")
+            time.sleep(1.0)
             
             # Étape 2: Coller le nom de fichier (Ctrl+V)
             self.log("📋 Collage du nom de fichier (Ctrl+V)...")
             self.log("   → Simulation de Ctrl+V...")
             pyautogui.hotkey('ctrl', 'v')
             self.log("   ✅ Ctrl+V envoyé")
-            time.sleep(0.5)
+            time.sleep(0.8)  # Augmenté pour laisser le temps au collage
             
             # Étape 3: Vérifier le chemin si demandé
             if verify_path:

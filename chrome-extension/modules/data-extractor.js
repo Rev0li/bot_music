@@ -21,33 +21,36 @@ async function extractSongData() {
   log('📝', 'Title:', songData.title);
 
   // Extraire l'artiste, album et année depuis le byline
-  // Structure: "The Killers • Hot Fuss • 2004"
+  // Structure: "Luvcat et John Cooper Clarke • He's My Man (The Anniversary) • 2025"
   const bylineElement = document.querySelector('ytmusic-player-bar .byline.complex-string');
   if (bylineElement) {
-    // Récupérer tous les liens <a> (artiste et album)
-    const links = bylineElement.querySelectorAll('a');
+    // Récupérer le texte complet et le diviser par les séparateurs •
+    const fullText = bylineElement.textContent.trim();
+    log('🔍', 'Full byline text:', fullText);
     
-    // Premier lien = Artiste
-    if (links[0]) {
-      songData.artist = links[0].textContent.trim();
+    // Diviser par les séparateurs • (bullet points)
+    const parts = fullText.split('•').map(part => part.trim());
+    log('📋', 'Byline parts:', parts);
+    
+    // Première partie = Artiste(s)
+    if (parts[0]) {
+      songData.artist = parts[0].trim();
       log('🎤', 'Artist:', songData.artist);
     }
     
-    // Deuxième lien = Album
-    if (links[1]) {
-      songData.album = links[1].textContent.trim();
+    // Deuxième partie = Album/Titre
+    if (parts[1]) {
+      songData.album = parts[1].trim();
       log('💿', 'Album:', songData.album);
     }
     
-    // Année (dernier <span> sans lien)
-    const spans = bylineElement.querySelectorAll('span[dir="auto"]');
-    for (let span of spans) {
-      const text = span.textContent.trim();
+    // Troisième partie = Année
+    if (parts[2]) {
+      const yearText = parts[2].trim();
       // Vérifier si c'est une année (4 chiffres)
-      if (/^\d{4}$/.test(text)) {
-        songData.year = text;
+      if (/^\d{4}$/.test(yearText)) {
+        songData.year = yearText;
         log('📅', 'Year:', songData.year);
-        break;
       }
     }
   } else {

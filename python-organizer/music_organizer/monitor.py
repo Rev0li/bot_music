@@ -31,7 +31,6 @@ class DownloadMonitor:
     
     def __init__(self, notification_callback: Optional[Callable] = None, log_callback: Optional[Callable] = None, auto_paste: bool = True, auto_save: bool = False):
         """
-        Initialise le moniteur de téléchargements.
         
         Args:
             notification_callback (Callable, optional): Fonction appelée lors d'une détection
@@ -44,9 +43,11 @@ class DownloadMonitor:
         self.is_monitoring = False
         self.monitor_thread = None
         self.detected_windows: Set[str] = set()
+        self.auto_saver = None
+        self.debug_mode = False
+        self.last_detection_time = 0  # Cooldown pour éviter les détections multiples
         self.auto_paste = auto_paste
         self.auto_save = auto_save
-        self.debug_mode = False
         
         # AutoSaver pour l'automatisation
         if AUTO_SAVE_AVAILABLE:
@@ -272,17 +273,43 @@ class DownloadMonitor:
         if not window_title or len(window_title) <= 5:
             return False
         
-        # Ignorer certaines fenêtres spécifiques qui ne sont pas des "Save As"
+        # SIMPLE: Chercher les fenêtres "Save As" 
+        save_keywords = ["wants to save", "save as", "enregistrer"]
+        
+        is_save_window = False
+        for keyword in save_keywords:
+            if keyword.lower() in window_title.lower():
+                is_save_window = True
+                break
+        
+        if not is_save_window:
+            return False
+        
+        # Ignorer les fenêtres d'applications qui ne sont PAS des "Save As"
         ignore_keywords = [
-            "Recent download history",  # Historique Chrome
-            "Downloads",  # Fenêtre de téléchargements
-            "History",  # Historique
+            "bot - windsurf",         # Windsurf IDE
+            "visual studio code",     # VS Code
+            "notepad",               # Bloc-notes
+            "chrome",                # Chrome (sauf "wants to save")
+            "firefox",               # Firefox
+            "explorer",              # Explorateur Windows
+            "cmd",                   # Invite de commandes
+            "powershell",            # PowerShell
+            "python",                # Python
+            "discord",               # Discord
+            "spotify",               # Spotify
+            "recent download history", # Historique Chrome
+            "downloads",             # Fenêtre de téléchargements
+            "history",               # Historique
         ]
         
         for ignore in ignore_keywords:
             if ignore.lower() in window_title.lower():
+                # Exception: Chrome avec "wants to save" est valide
+                if "chrome" in ignore.lower() and "wants to save" in window_title.lower():
+                    continue
                 if self.debug_mode:
-                    self.log(f"⏭️ Fenêtre ignorée: {window_title}")
+                    self.log(f"⏭️ Fenêtre ignorée (blacklist): {window_title}")
                 return False
         
         return True
@@ -294,6 +321,14 @@ class DownloadMonitor:
         Args:
             window_title (str): Titre de la fenêtre détectée
         """
+        # Cooldown de 10 secondes pour éviter les détections multiples
+        current_time = time.time()
+        if hasattr(self, 'last_detection_time') and current_time - self.last_detection_time < 10:
+            if self.debug_mode:
+                self.log(f"⏳ Cooldown actif, ignoré: {window_title}")
+            return
+        
+        self.last_detection_time = current_time
         self.log(f"🔔 Fenêtre détectée: {window_title}")
         
         # Automatiser le collage et la sauvegarde si activé
@@ -301,16 +336,17 @@ class DownloadMonitor:
             self.log(f"⏳ Attente de 2 secondes pour que la fenêtre soit prête...")
             time.sleep(2)  # Attendre que la fenêtre soit prête (augmenté à 2s)
             
-            self.log(f"🤖 Démarrage de l'automatisation...")
+            self.log(f"🤖 Démarrage de l'automatisation intelligente...")
             self.log(f"   - auto_paste: {self.auto_paste}")
             self.log(f"   - auto_save: {self.auto_save}")
             self.log(f"   - auto_saver disponible: {self.auto_saver is not None}")
             
             try:
-                result = self.auto_saver.auto_save(
-                    verify_path=True,
-                    auto_click_save=self.auto_save
-                )
+                # SIMPLE: Activer Brave et coller
+                self.log("🎯 Activation de Brave et collage...")
+                from .process_activator import SimpleAutoSaver
+                simple_saver = SimpleAutoSaver(log_callback=self.log)
+                result = simple_saver.simple_save(auto_click_save=self.auto_save)
                 if result:
                     self.log("✅ Automatisation terminée avec succès")
                 else:

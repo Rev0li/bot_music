@@ -138,26 +138,66 @@ class MusicOrganizerApp:
             bg=self.colors['button'],
             fg="white",
             cursor="hand2",
-            relief="flat",
             padx=15,
             pady=5
         )
         self.monitor_btn.pack(side="right", padx=5)
         
+        # Frame pour les boutons de test
+        button_frame = tk.Frame(self.root, bg=self.colors['bg'])
+        button_frame.pack(pady=10)
+        
+        # Bouton Test Simple
+        test_button = tk.Button(
+            button_frame,
+            text="🎯 Test Collage",
+            command=self.test_simple_paste,
+            bg="#4CAF50",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            relief="flat",
+            padx=20
+        )
+        test_button.pack(side=tk.LEFT, padx=5)
+        
         # Bouton Debug
-        debug_btn = tk.Button(
-            monitor_frame,
+        debug_button = tk.Button(
+            button_frame,
             text="🐛 Debug",
             command=self.toggle_debug,
-            font=("Arial", 9),
-            bg="#FF9800",
-            fg="white",
-            cursor="hand2",
+            bg=self.colors['button'],
+            fg=self.colors['bg'],
+            font=("Arial", 10, "bold"),
             relief="flat",
-            padx=10,
-            pady=5
+            padx=20
         )
-        debug_btn.pack(side="right", padx=5)
+        debug_button.pack(side=tk.LEFT, padx=5)
+        
+        # Switch Auto-Save
+        self.auto_save_var = tk.BooleanVar(value=True)  # Activé par défaut
+        auto_save_frame = tk.Frame(button_frame, bg=self.colors['bg'])
+        auto_save_frame.pack(side=tk.LEFT, padx=20)
+        
+        tk.Label(
+            auto_save_frame,
+            text="Auto-Save:",
+            font=("Arial", 10),
+            bg=self.colors['bg'],
+            fg=self.colors['fg']
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.auto_save_btn = tk.Button(
+            auto_save_frame,
+            text="✅ ON",
+            command=self.toggle_auto_save,
+            bg="#4CAF50",
+            fg="white",
+            font=("Arial", 9, "bold"),
+            relief="flat",
+            padx=15,
+            cursor="hand2"
+        )
+        self.auto_save_btn.pack(side=tk.LEFT)
     
     def _create_action_buttons(self):
         """Crée les boutons d'action principaux."""
@@ -241,11 +281,15 @@ class MusicOrganizerApp:
     
     def setup_monitor(self):
         """Configure le moniteur de téléchargements."""
+        # Utiliser la valeur du switch auto-save
+        auto_save_enabled = getattr(self, 'auto_save_var', None)
+        auto_save_value = auto_save_enabled.get() if auto_save_enabled else True
+        
         self.monitor = DownloadMonitor(
             notification_callback=self.show_download_notification,
             log_callback=self.log,
-            auto_paste=True,   # ✅ Coller automatiquement le nom
-            auto_save=True     # ✅ Cliquer automatiquement sur Save
+            auto_paste=True,        # ✅ Coller automatiquement le nom
+            auto_save=auto_save_value  # ✅ Utiliser la valeur du switch
         )
     
     def log(self, message: str):
@@ -283,6 +327,48 @@ class MusicOrganizerApp:
             self.monitor.start()
             self.monitor_status.config(text="✅ ON", fg=self.colors['button'])
             self.monitor_btn.config(text="⏸️ Désactiver", bg=self.colors['error'])
+    
+    def test_simple_paste(self):
+        """Test simple : Active Brave et colle le clipboard."""
+        self.log("🎯 Test de collage simple...")
+        
+        try:
+            from music_organizer.process_activator import SimpleAutoSaver
+            saver = SimpleAutoSaver(log_callback=self.log)
+            result = saver.simple_save()
+            
+            if result:
+                self.log("✅ Test réussi ! Brave activé et contenu collé")
+            else:
+                self.log("❌ Test échoué - Vérifiez que Brave est ouvert")
+                
+        except Exception as e:
+            self.log(f"❌ Erreur test: {str(e)}")
+    
+    def toggle_auto_save(self):
+        """Active/Désactive l'auto-save (clic automatique sur Save)."""
+        current = self.auto_save_var.get()
+        new_state = not current
+        self.auto_save_var.set(new_state)
+        
+        if new_state:
+            self.auto_save_btn.config(
+                text="✅ ON",
+                bg="#4CAF50",
+                fg="white"
+            )
+            self.log("💾 Auto-Save activé - Le bot cliquera automatiquement sur 'Save'")
+        else:
+            self.auto_save_btn.config(
+                text="❌ OFF", 
+                bg="#f44336",
+                fg="white"
+            )
+            self.log("💾 Auto-Save désactivé - Vous devrez cliquer sur 'Save' manuellement")
+        
+        # Mettre à jour le monitor si il existe
+        if self.monitor:
+            self.monitor.auto_save = new_state
     
     def toggle_debug(self):
         """Active/Désactive le mode debug du scanner."""
