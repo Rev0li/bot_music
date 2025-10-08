@@ -16,54 +16,54 @@ class ThemeManager:
                 "name": "Dark Theme",
                 "ctk_theme": "dark-blue",
                 "colors": {
-                    "primary": "#1f538d",
-                    "secondary": "#14375e", 
-                    "success": "#4CAF50",
-                    "warning": "#FF9800",
-                    "error": "#f44336",
-                    "info": "#2196F3",
-                    "bg_primary": "#212121",
-                    "bg_secondary": "#2b2b2b",
-                    "text_primary": "#ffffff",
-                    "text_secondary": "#b0b0b0",
-                    "border": "#404040",
-                    "hover": "#1565C0"
+                    "primary": "#4a90e2",      # Bleu plus doux
+                    "secondary": "#5ba0f2",    # Bleu complémentaire
+                    "success": "#7cb342",      # Vert plus doux
+                    "warning": "#ffa726",      # Orange plus doux
+                    "error": "#e57373",       # Rouge plus doux
+                    "info": "#42a5f5",        # Bleu info doux
+                    "bg_primary": "#2d2d2d",   # Gris foncé plus doux
+                    "bg_secondary": "#3a3a3a", # Gris moyen
+                    "text_primary": "#f5f5f5", # Blanc cassé
+                    "text_secondary": "#c0c0c0", # Gris clair
+                    "border": "#555555",       # Bordure douce
+                    "hover": "#5ba0f2"         # Bleu hover doux
                 }
             },
             "light": {
                 "name": "Light Theme", 
                 "ctk_theme": "blue",
                 "colors": {
-                    "primary": "#1976D2",
-                    "secondary": "#1565C0",
-                    "success": "#4CAF50", 
-                    "warning": "#FF9800",
-                    "error": "#f44336",
-                    "info": "#2196F3",
-                    "bg_primary": "#ffffff",
-                    "bg_secondary": "#f5f5f5",
-                    "text_primary": "#212121",
-                    "text_secondary": "#757575",
-                    "border": "#e0e0e0",
-                    "hover": "#1976D2"
+                    "primary": "#4a90e2",      # Bleu doux
+                    "secondary": "#5ba0f2",    # Bleu complémentaire
+                    "success": "#7cb342",      # Vert doux
+                    "warning": "#ffa726",      # Orange doux
+                    "error": "#e57373",       # Rouge doux
+                    "info": "#42a5f5",        # Bleu info
+                    "bg_primary": "#ffffff",   # Blanc pur
+                    "bg_secondary": "#f8f9fa", # Gris très clair
+                    "text_primary": "#2d2d2d", # Gris foncé
+                    "text_secondary": "#6c757d", # Gris moyen
+                    "border": "#e9ecef",       # Bordure claire
+                    "hover": "#4a90e2"         # Bleu hover
                 }
             },
-            "music": {
-                "name": "Music Theme",
-                "ctk_theme": "dark-blue", 
+            "soft": {
+                "name": "Soft Theme",
+                "ctk_theme": "dark-blue",
                 "colors": {
-                    "primary": "#8e24aa",
-                    "secondary": "#7b1fa2",
-                    "success": "#4CAF50",
-                    "warning": "#FF9800", 
-                    "error": "#f44336",
-                    "info": "#9c27b0",
-                    "bg_primary": "#1a1a1a",
-                    "bg_secondary": "#2d2d2d",
-                    "text_primary": "#ffffff",
-                    "text_secondary": "#b39ddb",
-                    "border": "#4a148c",
-                    "hover": "#9c27b0"
+                    "primary": "#6fa8d4",      # Bleu très doux
+                    "secondary": "#8bb8d8",    # Bleu complémentaire doux
+                    "success": "#8bc34a",      # Vert tendre
+                    "warning": "#ffb74d",      # Orange tendre
+                    "error": "#f48fb1",       # Rose tendre
+                    "info": "#64b5f6",        # Bleu ciel
+                    "bg_primary": "#f5f5f5",   # Gris très clair
+                    "bg_secondary": "#eeeeee", # Gris clair
+                    "text_primary": "#424242", # Gris foncé doux
+                    "text_secondary": "#9e9e9e", # Gris moyen
+                    "border": "#e0e0e0",       # Bordure très claire
+                    "hover": "#8bb8d8"         # Hover doux
                 }
             }
         }

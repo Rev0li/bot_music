@@ -41,9 +41,9 @@ class ModernButton(ctk.CTkButton):
             "command": command,
             "fg_color": color_map.get(style, color_map["primary"]),
             "hover_color": theme_manager.get_color("hover"),
-            "corner_radius": 8,
-            "font": ctk.CTkFont(size=12, weight="bold"),
-            "height": 35,
+            "corner_radius": 10,           # Coins plus arrondis
+            "font": ctk.CTkFont(size=11, weight="normal"), # Police moins épaisse
+            "height": 32,                 # Plus petits
             "cursor": "hand2"
         }
         
@@ -77,9 +77,9 @@ class ToggleButton(ctk.CTkButton):
         default_config = {
             "text": initial_text,
             "command": self._toggle,
-            "corner_radius": 20,
-            "font": ctk.CTkFont(size=11, weight="bold"),
-            "height": 30,
+            "corner_radius": 25,           # Très arrondi pour l'effet switch
+            "font": ctk.CTkFont(size=10, weight="normal"), # Plus petit et léger
+            "height": 28,                 # Plus petit
             "cursor": "hand2",
             "fg_color": initial_color
         }
@@ -103,11 +103,11 @@ class ToggleButton(ctk.CTkButton):
         if self.state:
             text = f"[ON] {self.base_text}"
             color = theme_manager.get_color("success")
-            hover = "#45a049"
+            hover = "#66bb6a"  # Vert plus doux pour hover
         else:
             text = f"[OFF] {self.base_text}"
             color = theme_manager.get_color("error")
-            hover = "#e53935"
+            hover = "#ef5350"  # Rouge plus doux pour hover
         
         # Configurer après l'initialisation complète
         if hasattr(self, '_text_label'):

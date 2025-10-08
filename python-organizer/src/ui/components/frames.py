@@ -19,9 +19,8 @@ class ModernFrame(ctk.CTkFrame):
         """
         
         default_config = {
-            "corner_radius": 10,
-            "border_width": 1,
-            "border_color": theme_manager.get_color("border"),
+            "corner_radius": 12,           # Coins plus arrondis
+            "border_width": 0,             # Pas de bordure par défaut
             "fg_color": theme_manager.get_color("bg_secondary")
         }
         
