@@ -38,13 +38,9 @@ Thumbs.db
 # DOSSIERS DE DONNÉES - NE PAS COMMIT
 # ============================================
 
-# Dossier temporaire (métadonnées en attente)
-queue/*
-!queue/.gitkeep
-
-# Dossier de destination (fichiers MP3 téléchargés)
-a_trier/*
-!a_trier/.gitkeep
+# Dossier temporaire (JSON + MP3 en cours de traitement)
+temp/*
+!temp/.gitkeep
 
 # Autres dossiers de musique
 music/

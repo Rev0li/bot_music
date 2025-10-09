@@ -20,20 +20,18 @@ from flask_cors import CORS
 import json
 import os
 from pathlib import Path
-from datetime import datetime
 import threading
 import time
+from datetime import datetime
 
 # Import du handler Save As
 try:
-    from save_as_handler import SaveAsHandler
-    SAVE_AS_AVAILABLE = True
+    from save_as_handler import SaveAsHandler, PYWINAUTO_AVAILABLE
+    from music_organizer import MusicOrganizer
+    SAVE_AS_AVAILABLE = PYWINAUTO_AVAILABLE
 except ImportError:
     SAVE_AS_AVAILABLE = False
     print("⚠️ save_as_handler non disponible (pywinauto non installé)")
-
-# ============================================
-# CONFIGURATION
 # ============================================
 
 app = Flask(__name__)
@@ -41,15 +39,15 @@ CORS(app)  # Permettre les requêtes depuis l'extension Chrome
 
 # Dossiers
 BASE_DIR = Path(__file__).parent.parent
-QUEUE_DIR = BASE_DIR / "queue"
-A_TRIER_DIR = BASE_DIR / "a_trier"
+TEMP_DIR = BASE_DIR / "temp"  # JSON + MP3 temporaires
+MUSIC_DIR = BASE_DIR / "music"  # MP3 organisés (FINAL)
 
 # Créer les dossiers
-QUEUE_DIR.mkdir(exist_ok=True)
-A_TRIER_DIR.mkdir(exist_ok=True)
+TEMP_DIR.mkdir(exist_ok=True)
+MUSIC_DIR.mkdir(exist_ok=True)
 
-print(f"📁 Queue: {QUEUE_DIR}")
-print(f"📁 A trier: {A_TRIER_DIR}")
+print(f"📁 Temp: {TEMP_DIR}")
+print(f"📁 Music: {MUSIC_DIR}")
 
 # État global pour le statut de téléchargement
 download_status = {
@@ -76,6 +74,45 @@ def get_status():
     """Retourne le statut du téléchargement en cours"""
     return jsonify(download_status)
 
+@app.route('/cleanup', methods=['POST'])
+def cleanup_temp():
+    """
+    Nettoie le dossier temp/ (JSON + MP3)
+    Utile en cas d'erreur ou de blocage
+    """
+    try:
+        print("\n🧹 Nettoyage du dossier temp/...")
+        
+        deleted_files = []
+        
+        # Supprimer tous les fichiers dans temp/
+        if TEMP_DIR.exists():
+            for file in TEMP_DIR.iterdir():
+                if file.is_file():
+                    file.unlink()
+                    deleted_files.append(file.name)
+                    print(f"   🗑️ Supprimé: {file.name}")
+        
+        print(f"✅ Nettoyage terminé: {len(deleted_files)} fichier(s) supprimé(s)\n")
+        
+        # Reset le statut
+        download_status['in_progress'] = False
+        download_status['last_completed'] = None
+        download_status['last_error'] = None
+        
+        return jsonify({
+            'success': True,
+            'deleted_files': deleted_files,
+            'count': len(deleted_files)
+        })
+        
+    except Exception as e:
+        print(f"❌ Erreur lors du nettoyage: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/save', methods=['POST'])
 def save_song_data():
     """
@@ -100,13 +137,12 @@ def save_song_data():
             'link': data.get('link', ''),
             'timestamp': timestamp,
             'created_at': datetime.now().isoformat(),
-            'queue_path': str(QUEUE_DIR.absolute()),  # Dossier queue
-            'a_trier_path': str(A_TRIER_DIR.absolute()),  # Dossier de destination
+            'temp_path': str(TEMP_DIR.absolute()),  # Dossier temporaire
         }
         
-        # Sauvegarder en JSON directement dans queue/ avec le même nom que le MP3
+        # Sauvegarder en JSON directement dans temp/ avec le même nom que le MP3
         json_filename = metadata['filename'].replace('.mp3', '.json')
-        json_path = QUEUE_DIR / json_filename
+        json_path = TEMP_DIR / json_filename
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
         
@@ -134,6 +170,66 @@ def save_song_data():
             'success': False,
             'error': str(e)
         }), 500
+
+# ============================================
+# ORGANISATION AUTOMATIQUE
+# ============================================
+
+def organize_downloaded_file(file_info: dict, metadata: dict):
+    """
+    Organise automatiquement le fichier téléchargé dans music/
+    
+    Args:
+        file_info: Infos du fichier téléchargé
+        metadata: Métadonnées du JSON
+    """
+    try:
+        print("\n" + "="*50)
+        print("🎨 Organisation automatique")
+        print("="*50)
+        
+        # Chemins
+        mp3_path = Path(file_info['path']) / file_info['filename']
+        json_filename = file_info['filename'].replace('.mp3', '.json')
+        json_path = TEMP_DIR / json_filename
+        
+        # Vérifier que les fichiers existent
+        if not mp3_path.exists():
+            print(f"❌ MP3 introuvable: {mp3_path}")
+            return
+        
+        if not json_path.exists():
+            print(f"⚠️ JSON introuvable: {json_path}")
+            # Continuer quand même avec les métadonnées en mémoire
+        
+        # Organiser
+        organizer = MusicOrganizer(str(MUSIC_DIR))
+        
+        # Utiliser les métadonnées en mémoire si le JSON n'existe pas
+        if json_path.exists():
+            result = organizer.organize_file(str(mp3_path), str(json_path))
+        else:
+            # Créer un JSON temporaire
+            temp_json = TEMP_DIR / f"temp_{json_filename}"
+            with open(temp_json, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+            result = organizer.organize_file(str(mp3_path), str(temp_json))
+            temp_json.unlink()  # Supprimer le temp
+        
+        if result['success']:
+            print(f"✅ Fichier organisé dans: {result['new_path']}")
+            
+            # Supprimer le JSON
+            if json_path.exists():
+                json_path.unlink()
+                print(f"🗑️ JSON supprimé: {json_filename}")
+        else:
+            print(f"❌ Erreur d'organisation: {result.get('error')}")
+        
+        print("="*50 + "\n")
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de l'organisation: {e}\n")
 
 # ============================================
 # SURVEILLANCE FENÊTRE "SAVE AS"
@@ -171,7 +267,7 @@ def watch_save_as_window(metadata):
         
         file_info = handler.wait_and_fill(
             filename=metadata['filename'],
-            target_folder=str(A_TRIER_DIR),
+            target_folder=str(TEMP_DIR),
             timeout=120  # 2 minutes max pour la fenêtre Save As
         )
         
@@ -181,6 +277,9 @@ def watch_save_as_window(metadata):
             print(f"📁 Fichier réel: {file_info['filename']}")
             print(f"📂 Dossier: {file_info['path']}")
             print(f"📊 Taille: {file_info['size'] / 1024 / 1024:.2f} MB\n")
+            
+            # Organiser le fichier dans music/
+            organize_downloaded_file(file_info, metadata)
             
             # Mettre à jour le statut avec les vraies infos
             download_status['in_progress'] = False
@@ -214,8 +313,8 @@ if __name__ == '__main__':
     print("🐍 Serveur Python GrabSong")
     print("="*50)
     print(f"🌐 URL: http://localhost:5000")
-    print(f"📁 Queue: {QUEUE_DIR}")
-    print(f"📁 A trier: {A_TRIER_DIR}")
+    print(f"📁 Temp: {TEMP_DIR}")
+    print(f"📁 Music: {MUSIC_DIR}")
     print("="*50)
     print("\n✅ Serveur démarré - En attente de requêtes...\n")
     

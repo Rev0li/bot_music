@@ -7,3 +7,6 @@ flask-cors>=4.0.0
 # Automatisation Windows
 pywinauto>=0.6.8
 pywin32>=306
+
+# Organisation et tags ID3
+mutagen>=1.47.0

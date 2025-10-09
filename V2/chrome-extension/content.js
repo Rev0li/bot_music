@@ -424,24 +424,79 @@ if (isYouTubeMusic) {
       const fullText = bylineElement.textContent.trim();
       log('🔍', 'Full byline text:', fullText);
       
-      const parts = fullText.split('•').map(part => part.trim());
-      log('📋', 'Byline parts:', parts);
+      // Détecter le mode album (contient "lectures", "vues", "J'aime", etc.)
+      const isAlbumMode = /lectures|vues|j'aime|views|likes/i.test(fullText);
       
-      if (parts[0]) {
-        songData.artist = parts[0].trim();
-        log('🎤', 'Artist:', songData.artist);
-      }
-      
-      if (parts[1]) {
-        songData.album = parts[1].trim();
-        log('💿', 'Album:', songData.album);
-      }
-      
-      if (parts[2]) {
-        const yearText = parts[2].trim();
-        if (/^\d{4}$/.test(yearText)) {
-          songData.year = yearText;
-          log('📅', 'Year:', songData.year);
+      if (isAlbumMode) {
+        log('⚠️', '🎵 MODE ALBUM DÉTECTÉ');
+        songData.albumMode = true;
+        
+        // En mode album, on a généralement juste l'artiste
+        const parts = fullText.split('•').map(part => part.trim());
+        
+        // Le premier élément qui n'est pas un nombre de vues/lectures est l'artiste
+        for (let part of parts) {
+          if (!/lectures|vues|j'aime|views|likes|k |M /i.test(part)) {
+            songData.artist = part.trim();
+            log('🎤', 'Artist (album mode):', songData.artist);
+            break;
+          }
+        }
+        
+        // Chercher l'album et l'année dans le header de la page
+        const albumHeader = document.querySelector('ytmusic-responsive-header-renderer');
+        if (albumHeader) {
+          // Nom de l'album
+          const albumTitle = albumHeader.querySelector('h1 .title');
+          if (albumTitle) {
+            songData.album = albumTitle.textContent.trim();
+            log('💿', 'Album (from header):', songData.album);
+          }
+          
+          // Année (dans le subtitle: "Album • 2022")
+          const subtitle = albumHeader.querySelector('.subtitle');
+          if (subtitle) {
+            const subtitleText = subtitle.textContent.trim();
+            log('🔍', 'Subtitle text:', subtitleText);
+            
+            // Séparer par • et chercher l'année
+            const subtitleParts = subtitleText.split('•').map(p => p.trim());
+            for (let part of subtitleParts) {
+              // Chercher une année (4 chiffres uniquement)
+              if (/^\d{4}$/.test(part)) {
+                songData.year = part;
+                log('📅', 'Year (from header):', songData.year);
+                break;
+              }
+            }
+          }
+        }
+        
+        if (!songData.album || !songData.year) {
+          log('⚠️', 'Album ou année non trouvés dans le header');
+        }
+      } else {
+        // Mode normal (chanson individuelle)
+        songData.albumMode = false;
+        const parts = fullText.split('•').map(part => part.trim());
+        log('📋', 'Byline parts:', parts);
+        
+        if (parts[0]) {
+          songData.artist = parts[0].trim();
+          log('🎤', 'Artist:', songData.artist);
+        }
+        
+        if (parts[1]) {
+          songData.album = parts[1].trim();
+          log('💿', 'Album:', songData.album);
+        }
+        
+        if (parts[2]) {
+          const yearText = parts[2].trim();
+          if (/^\d{4}$/.test(yearText)) {
+            songData.year = yearText;
+            log('📅', 'Year:', songData.year);
+          }
         }
       }
     }
@@ -521,6 +576,14 @@ if (isYouTubeMusic) {
       // Étape 2: Afficher le formulaire d'édition
       addChatMessage('<strong>✏️ Étape 2/5:</strong> Vérifiez et modifiez les données si nécessaire', 'info');
       
+      // Notification si mode album
+      if (songData.albumMode) {
+        addChatMessage(
+          '<strong>⚠️ Mode Album:</strong> Les informations Album et Année doivent être remplies manuellement.',
+          'warning'
+        );
+      }
+      
       showEditForm(songData);
       
     } catch (error) {
@@ -548,6 +611,21 @@ if (isYouTubeMusic) {
       <div style="margin-bottom: 15px;">
         <strong style="color: #667eea;">✏️ Modifier les informations</strong>
       </div>
+      
+      ${songData.albumMode ? `
+      <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">⚠️</span>
+          <div>
+            <strong style="color: #856404; font-size: 14px;">Mode Album Détecté</strong>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #856404;">
+              Les informations Album et Année ne sont pas disponibles automatiquement.<br>
+              Veuillez les remplir manuellement.
+            </p>
+          </div>
+        </div>
+      </div>
+      ` : ''}
       
       <div style="margin-bottom: 10px;">
         <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px;">🎤 Artiste</label>
