@@ -286,6 +286,155 @@ class SaveAsHandler:
             print(f"❌ Erreur lors de la validation: {e}")
             return False
     
+    def wait_for_file_download(self, filename, target_folder, timeout=60):
+        """
+        Attend qu'un nouveau fichier MP3 apparaisse dans le dossier
+        
+        Args:
+            filename (str): Nom du fichier attendu (depuis le JSON)
+            target_folder (str): Dossier où le fichier doit apparaître
+            timeout (int): Temps d'attente maximum
+            
+        Returns:
+            dict: Informations sur le fichier trouvé ou None
+        """
+        print(f"\n⏳ Attente d'un nouveau fichier MP3...")
+        print(f"📁 Dans: {target_folder}")
+        print(f"🔍 Fichier attendu (JSON): {filename}")
+        
+        target_path = Path(target_folder)
+        start_time = time.time()
+        
+        # Fonction pour nettoyer les noms de fichiers
+        def clean_filename(name):
+            """Nettoie le nom pour la comparaison"""
+            name = name.replace('.mp3', '').lower()
+            # Supprimer les caractères que le navigateur peut enlever
+            for char in ['(', ')', '[', ']', '{', '}', ' ']:
+                name = name.replace(char, '')
+            return name
+        
+        expected_clean = clean_filename(filename)
+        
+        # Lister les fichiers MP3 existants au départ avec leur date de modification
+        existing_files = {}
+        if target_path.exists():
+            for f in target_path.glob('*.mp3'):
+                existing_files[f.name] = f.stat().st_mtime
+            print(f"📊 Fichiers MP3 existants: {len(existing_files)}")
+            
+            # Vérifier si le fichier attendu existe déjà
+            for fname in existing_files.keys():
+                actual_clean = clean_filename(fname)
+                if expected_clean == actual_clean:
+                    print(f"✅ Le fichier existe déjà et correspond au JSON: {fname}")
+                    file_path = target_path / fname
+                    try:
+                        file_size = file_path.stat().st_size
+                        print(f"📊 Taille: {file_size / 1024 / 1024:.2f} MB")
+                        return {
+                            'success': True,
+                            'filename': fname,
+                            'path': str(target_path),
+                            'size': file_size
+                        }
+                    except Exception as e:
+                        print(f"⚠️ Erreur: {e}")
+            
+            if existing_files:
+                print(f"   Fichiers ignorés (ne correspondent pas):")
+                for fname in existing_files.keys():
+                    print(f"   - {fname}")
+        
+        last_check = 0
+        
+        while time.time() - start_time < timeout:
+            elapsed = int(time.time() - start_time)
+            
+            # Afficher un point toutes les 5 secondes
+            if elapsed > last_check and elapsed % 5 == 0:
+                print(f"   ... toujours en attente ({elapsed}s / {timeout}s)")
+                last_check = elapsed
+            
+            # Vérifier les nouveaux fichiers MP3 ou fichiers modifiés récemment
+            if target_path.exists():
+                current_files = {}
+                for f in target_path.glob('*.mp3'):
+                    current_files[f.name] = f.stat().st_mtime
+                
+                # Debug: Afficher tous les fichiers trouvés toutes les 10 secondes
+                if elapsed % 10 == 0 and elapsed > 0:
+                    print(f"   📋 Fichiers actuels dans a_trier: {len(current_files)}")
+                    for fname in current_files.keys():
+                        print(f"      - {fname}")
+                
+                # Chercher les nouveaux fichiers ou fichiers modifiés après le début
+                for file_name, mtime in current_files.items():
+                    # Nouveau fichier OU fichier modifié après le début de la surveillance
+                    is_new = file_name not in existing_files
+                    is_modified = mtime > start_time
+                    
+                    if is_new or is_modified:
+                        file_path = target_path / file_name
+                        
+                        print(f"🆕 Fichier détecté: {file_name}")
+                        print(f"   Nouveau: {is_new}, Modifié récemment: {is_modified}")
+                        print(f"   Date modification: {datetime.fromtimestamp(mtime).strftime('%H:%M:%S')}")
+                        
+                        # Vérifier que c'est bien le fichier attendu (nom similaire)
+                        # Nettoyer les noms pour la comparaison (supprimer caractères spéciaux)
+                        def clean_filename(name):
+                            """Nettoie le nom pour la comparaison"""
+                            name = name.replace('.mp3', '').lower()
+                            # Supprimer les caractères que le navigateur peut enlever
+                            for char in ['(', ')', '[', ']', '{', '}', ' ']:
+                                name = name.replace(char, '')
+                            return name
+                        
+                        expected_clean = clean_filename(filename)
+                        actual_clean = clean_filename(file_name)
+                        
+                        print(f"   Comparaison:")
+                        print(f"   - Attendu: {expected_clean}")
+                        print(f"   - Trouvé:  {actual_clean}")
+                        
+                        # Vérifier si les noms correspondent (comparaison flexible)
+                        if expected_clean == actual_clean or expected_clean in actual_clean or actual_clean in expected_clean:
+                            print(f"✅ Le fichier correspond au JSON")
+                            
+                            # Attendre que la taille se stabilise (téléchargement terminé)
+                            print(f"⏳ Vérification que le téléchargement est terminé...")
+                            time.sleep(2)
+                            
+                            try:
+                                initial_size = file_path.stat().st_size
+                                time.sleep(2)
+                                final_size = file_path.stat().st_size
+                                
+                                if final_size == initial_size and final_size > 0:
+                                    print(f"✅ Fichier téléchargé: {file_name}")
+                                    print(f"📊 Taille: {final_size / 1024 / 1024:.2f} MB")
+                                    
+                                    return {
+                                        'success': True,
+                                        'filename': file_name,
+                                        'path': str(target_path),
+                                        'size': final_size
+                                    }
+                                else:
+                                    print(f"⏳ Téléchargement en cours... ({initial_size} → {final_size} bytes)")
+                            except Exception as e:
+                                print(f"⚠️ Erreur de vérification: {e}")
+                        else:
+                            print(f"⚠️ Le fichier ne correspond pas au JSON attendu")
+                            print(f"   Attendu: {expected_base}")
+                            print(f"   Trouvé: {actual_base}")
+            
+            time.sleep(1)
+        
+        print(f"❌ Timeout: Aucun nouveau fichier MP3 après {timeout}s")
+        return None
+    
     def wait_and_fill(self, filename, target_folder, timeout=60):
         """
         Attend la fenêtre "Save As" et remplit automatiquement
@@ -295,6 +444,7 @@ class SaveAsHandler:
         2. Remplir le filename (Ctrl+A → Taper)
         3. Changer le PATH (Ctrl+L → Taper → Entrée)
         4. Valider (Entrée)
+        5. Attendre la fin du téléchargement
         
         Args:
             filename (str): Nom du fichier
@@ -302,7 +452,7 @@ class SaveAsHandler:
             timeout (int): Temps d'attente maximum
             
         Returns:
-            bool: True si succès complet
+            bool: True si succès complet (fichier téléchargé)
         """
         print("\n" + "="*50)
         print("🚀 Démarrage de l'automatisation 'Save As'")
@@ -334,10 +484,24 @@ class SaveAsHandler:
             return False
         
         print("\n" + "="*50)
-        print("🎉 Automatisation terminée avec succès!")
+        print("✅ Formulaire validé - Téléchargement en cours...")
         print("="*50 + "\n")
         
-        return True
+        # 5. Attendre que le fichier soit téléchargé (comparer avec le filename du JSON)
+        file_info = self.wait_for_file_download(filename, target_folder, timeout=120)
+        
+        if file_info and file_info['success']:
+            print("\n" + "="*50)
+            print("🎉 Téléchargement terminé avec succès!")
+            print(f"📁 Fichier: {file_info['filename']}")
+            print(f"📊 Taille: {file_info['size'] / 1024 / 1024:.2f} MB")
+            print("="*50 + "\n")
+            return file_info  # Retourner les infos du fichier
+        else:
+            print("\n" + "="*50)
+            print("⚠️ Téléchargement non confirmé")
+            print("="*50 + "\n")
+            return None
 
 # ============================================
 # TEST

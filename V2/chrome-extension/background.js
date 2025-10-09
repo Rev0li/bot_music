@@ -192,6 +192,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Garder le canal ouvert pour sendResponse asynchrone
   }
   
+  // Vérifier le statut Python
+  if (message.action === 'check_python_status') {
+    fetch('http://localhost:5000/status')
+      .then(response => response.json())
+      .then(data => {
+        sendResponse(data);
+      })
+      .catch(error => {
+        console.error('❌ [Background] Erreur status:', error);
+        sendResponse({ in_progress: false });
+      });
+    
+    return true;
+  }
+  
   return true;
 });
 

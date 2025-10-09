@@ -757,6 +757,9 @@ if (isYouTubeMusic) {
         'warning'
       );
       
+      // Démarrer le polling du statut Python
+      startStatusPolling();
+      
       log('✅', '=== GrabSong Complete ===');
       
     } catch (error) {
@@ -774,6 +777,62 @@ if (isYouTubeMusic) {
     createChatContainer();
   }
 
+  // Polling du statut Python
+  let statusPollingInterval = null;
+  
+  function startStatusPolling() {
+    log('🔄', 'Démarrage du polling du statut Python...');
+    
+    // Arrêter un éventuel polling en cours
+    if (statusPollingInterval) {
+      clearInterval(statusPollingInterval);
+    }
+    
+    // Vérifier le statut toutes les 3 secondes
+    statusPollingInterval = setInterval(() => {
+      chrome.runtime.sendMessage({
+        action: 'check_python_status'
+      }, (response) => {
+        if (response && response.last_completed) {
+          // Téléchargement terminé !
+          log('🎉', 'Téléchargement confirmé:', response.last_completed);
+          
+          // Arrêter le polling
+          clearInterval(statusPollingInterval);
+          statusPollingInterval = null;
+          
+          // Afficher le message de succès
+          addChatMessage(
+            `<strong>🎉 Téléchargement terminé !</strong><br><br>
+            📁 Fichier: <strong>${response.last_completed.filename}</strong><br>
+            📂 Dossier: ${response.last_completed.path}<br><br>
+            <em>✨ L'extension va se réinitialiser dans 3 secondes...</em>`,
+            'success'
+          );
+          
+          // Reset après 3 secondes
+          setTimeout(() => {
+            resetExtension();
+          }, 3000);
+        }
+        
+        if (response && response.last_error) {
+          // Erreur détectée
+          log('❌', 'Erreur Python:', response.last_error);
+          
+          // Arrêter le polling
+          clearInterval(statusPollingInterval);
+          statusPollingInterval = null;
+          
+          addChatMessage(
+            `<strong>❌ Erreur Python:</strong><br>${response.last_error}`,
+            'error'
+          );
+        }
+      });
+    }, 3000); // Vérifier toutes les 3 secondes
+  }
+  
   // Fonction de reset de l'extension
   function resetExtension() {
     log('🔄', 'Reset de l\'extension...');

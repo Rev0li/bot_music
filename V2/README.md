@@ -20,13 +20,13 @@ Extension Chrome + Serveur Python pour télécharger et organiser automatiquemen
 1. Ouvrir chrome://extensions/
 2. Activer "Mode développeur"
 3. Cliquer "Charger l'extension non empaquetée"
-4. Sélectionner le dossier V2/grabSong/
+4. Sélectionner le dossier V2/chrome-extension/
 ```
 
 ### 2. Serveur Python
 
 ```bash
-cd V2/grabSong
+cd V2/python-server
 pip install -r requirements.txt
 python app.py
 ```
@@ -35,32 +35,35 @@ python app.py
 
 ```
 V2/
-├── grabSong/              # Extension Chrome + Serveur Python
-│   ├── manifest.json      # Extension
+├── chrome-extension/      # Extension Chrome uniquement
+│   ├── manifest.json      # Configuration
 │   ├── background.js      # Service Worker
 │   ├── content.js         # Interface utilisateur
 │   ├── popup.html/js      # Popup
+│   └── icons/             # Icônes
+│
+├── python-server/         # Serveur Python uniquement
 │   ├── app.py             # Serveur Flask
 │   ├── save_as_handler.py # Automatisation Save As
-│   └── icons/             # Icônes
+│   └── requirements.txt   # Dépendances
+│
 ├── queue/                 # Dossier temporaire (métadonnées)
 └── a_trier/               # Dossier de destination (MP3)
 ```
 
 ## 🎮 Utilisation
 
-1. Lancer `python grabSong/app.py`
+1. Lancer `python python-server/app.py`
 2. Aller sur YouTube Music
 3. Cliquer sur "🎯 GrabSong"
 4. Éditer les métadonnées
 5. Cliquer "💾 Sauvegarder et Continuer"
 6. Le fichier MP3 se télécharge et se sauvegarde automatiquement dans `a_trier/`
+7. L'extension se réinitialise automatiquement après succès
 
 ## 📖 Documentation
 
-- `grabSong/README.md` - Documentation de l'extension
-- `grabSong/VERSION.md` - Historique des versions
-- `grabSong/SAVE_AS_SETUP.md` - Guide d'installation pywinauto
+Voir les fichiers MD dans chaque dossier pour plus de détails.
 
 ## 🎯 Version
 
