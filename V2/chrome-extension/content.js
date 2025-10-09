@@ -155,6 +155,7 @@ if (isYouTubeMusic) {
   let chatExpanded = false;
   let chatXOffset = 0;
   let chatYOffset = 0;
+  let statusPollingInterval = null;
   
   // Créer le conteneur qui combine bouton et chat
   function createChatContainer() {
@@ -170,59 +171,83 @@ if (isYouTubeMusic) {
       right: 20px;
       z-index: 999999;
       transition: all 0.3s ease;
+      width: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
     `;
     
     // Créer le bouton à l'intérieur
     const button = document.createElement('button');
     button.id = 'grabsong-btn';
-    button.textContent = CONFIG.ui.buttonText;
-    button.title = 'Clic = Ouvrir | Alt + Drag = Déplacer';
+    button.innerHTML = `
+      <span style="font-size: 20px; margin-right: 8px;">🎵</span>
+      <span style="font-weight: 600;">GrabSong</span>
+    `;
+    button.title = 'Télécharger cette chanson';
     button.style.cssText = `
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      padding: 15px 25px;
+      padding: 16px 28px;
       border-radius: 50px;
-      font-size: 16px;
-      font-weight: bold;
+      font-size: 15px;
+      font-weight: 600;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
       user-select: none;
-      transition: all 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
     
-    // Créer le chat (caché par défaut) - se déplie vers le bas
+    // Effet hover
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-2px)';
+      button.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.5)';
+    });
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'translateY(0)';
+      button.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+    });
+    
+    // Créer le chat (caché par défaut) - se déplie vers le haut et la gauche
     const chatPanel = document.createElement('div');
     chatPanel.id = 'grabsong-chat';
     chatPanel.style.cssText = `
-      width: 350px;
+      width: 380px;
       max-height: 0;
       background: white;
-      border-radius: 0 0 15px 15px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+      border-radius: 15px 15px 0 0;
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.3);
       overflow: hidden;
       transition: max-height 0.3s ease, opacity 0.3s ease;
       opacity: 0;
       display: flex;
-      flex-direction: column;
+      flex-direction: column-reverse;
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      margin-bottom: 5px;
     `;
     
     chatPanel.innerHTML = `
-      <div id="grabsong-messages" style="flex: 1; overflow-y: auto; padding: 15px; max-height: 400px; background: #f5f5f5;">
-        <div class="grabsong-message system">
-          <strong>👋 Bienvenue !</strong><br>
-          Cliquez pour télécharger une chanson depuis YouTube Music.
-        </div>
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 15px; display: flex; justify-content: flex-end; align-items: center; border-radius: 15px 15px 0 0;" id="grabsong-header">
+        <button id="grabsong-minimize" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">−</button>
       </div>
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; cursor: move;" id="grabsong-footer">
-        <div style="font-size: 12px; opacity: 0.9;">Alt + Drag pour déplacer</div>
-        <button id="grabsong-minimize" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 25px; height: 25px; border-radius: 50%; cursor: pointer; font-size: 16px;">−</button>
+      <div id="grabsong-messages" style="flex: 1; overflow-y: auto; padding: 15px; max-height: 450px; background: #f5f5f5; display: flex; flex-direction: column; gap: 10px;">
+        <div class="grabsong-message system" style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
+          <strong>👋 Bienvenue !</strong><br>
+          <small>Cliquez pour télécharger une chanson</small>
+        </div>
       </div>
     `;
     
-    container.appendChild(button);
     container.appendChild(chatPanel);
+    container.appendChild(button);
     document.body.appendChild(container);
     
     // Gestion du clic sur le bouton
@@ -250,9 +275,9 @@ if (isYouTubeMusic) {
     const chat = document.getElementById('grabsong-chat');
     
     if (!chatExpanded) {
-      // Ouvrir le chat (vers le bas)
-      button.style.borderRadius = '15px 15px 0 0';
-      chat.style.maxHeight = '500px';
+      // Ouvrir le chat (vers le haut)
+      button.style.borderRadius = '0 0 50px 50px';
+      chat.style.maxHeight = '550px';
       chat.style.opacity = '1';
       chatExpanded = true;
       
@@ -563,7 +588,7 @@ if (isYouTubeMusic) {
     
     try {
       // Étape 1: Extraction
-      addChatMessage('<strong>📥 Étape 1/5:</strong> Extraction des données de la chanson...', 'info');
+      addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">🎵 Étape 1/4 : Extraction</div>Récupération des métadonnées de la chanson...', 'info');
       const songData = await extractSongData();
       
       songData.link = await getShareLink();
@@ -573,13 +598,15 @@ if (isYouTubeMusic) {
         return;
       }
       
+      addChatMessage('<strong>✅</strong> Données extraites avec succès !', 'success');
+      
       // Étape 2: Afficher le formulaire d'édition
-      addChatMessage('<strong>✏️ Étape 2/5:</strong> Vérifiez et modifiez les données si nécessaire', 'info');
+      addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">✏️ Étape 2/4 : Vérification</div>Vérifiez les informations ci-dessous', 'info');
       
       // Notification si mode album
       if (songData.albumMode) {
         addChatMessage(
-          '<strong>⚠️ Mode Album:</strong> Les informations Album et Année doivent être remplies manuellement.',
+          '<strong>⚠️ Mode Album détecté</strong><br><small>Album et Année extraits automatiquement</small>',
           'warning'
         );
       }
@@ -758,8 +785,8 @@ if (isYouTubeMusic) {
   // Continuer le workflow après validation
   async function continueWorkflow(songData) {
     try {
-      // Étape 3: Création du nom de fichier
-      addChatMessage('<strong>📝 Étape 3/5:</strong> Création du nom de fichier...', 'info');
+      // Étape 3: Sauvegarde Python
+      addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">💾 Étape 3/4 : Sauvegarde</div>Envoi des données au serveur Python...', 'info');
       
       const parts = [];
       if (songData.artist) parts.push(`art=${songData.artist}`);
@@ -774,21 +801,12 @@ if (isYouTubeMusic) {
       
       await copyToClipboard(cleanFilename);
       
-      addChatMessage(
-        `<strong>✅ Nom de fichier créé:</strong><br>
-        <code style="background: #f0f0f0; padding: 5px; border-radius: 3px; display: block; margin-top: 5px; word-break: break-all;">${cleanFilename}</code>`,
-        'success'
-      );
-      
       songData.filename = cleanFilename;
       
       // Sauvegarder dans le storage
       chrome.storage.local.set({ pendingSongData: songData }, () => {
         log('💾', 'Data saved to storage');
       });
-      
-      // Étape 4: Envoyer à Python via background script
-      addChatMessage('<strong>🐍 Étape 4/5:</strong> Envoi des données à Python...', 'info');
       
       // Envoyer via background script (pour éviter CORS)
       chrome.runtime.sendMessage({
@@ -797,24 +815,19 @@ if (isYouTubeMusic) {
       }, (response) => {
         if (response && response.success) {
           log('✅', 'Données envoyées à Python:', response);
-          addChatMessage(
-            `<strong>✅ Python:</strong> Données sauvegardées<br>
-            📁 Dossier: ${response.timestamp}`,
-            'success'
-          );
+          addChatMessage('<strong>✅</strong> Données sauvegardées sur le serveur', 'success');
         } else {
           log('⚠️', 'Python non connecté:', response);
           addChatMessage(
-            '<strong>⚠️ Python:</strong> Non connecté<br>' +
-            '<em>Lancez: python app.py</em><br>' +
-            '(Le téléchargement continuera)',
+            '<strong>⚠️ Serveur Python non accessible</strong><br>' +
+            '<small>Lancez: <code>python app.py</code></small>',
             'warning'
           );
         }
       });
       
-      // Étape 5: Ouverture Y2Mate
-      addChatMessage('<strong>🌐 Étape 5/5:</strong> Ouverture de Y2Mate en arrière-plan...', 'info');
+      // Étape 4: Téléchargement
+      addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">⬇️ Étape 4/4 : Téléchargement</div>Lancement du téléchargement automatique...', 'info');
       
       chrome.runtime.sendMessage({
         action: 'openTab',
@@ -822,17 +835,19 @@ if (isYouTubeMusic) {
         data: songData
       });
       
-      // Instructions finales
+      // Animation loading en attente
       addChatMessage(
-        `<strong>⏳ Conversion en cours...</strong><br><br>
-        <strong>📌 Important:</strong><br>
-        • Restez sur cette page YouTube Music<br>
-        • Vous pouvez continuer à naviguer et écouter de la musique<br>
-        • La conversion se fait en arrière-plan<br>
-        • Le téléchargement démarrera automatiquement<br>
-        • L'onglet Y2Mate se fermera tout seul<br><br>
-        <em>⏱️ Temps estimé: 30-60 secondes</em>`,
-        'warning'
+        `<div style="text-align: center; padding: 20px;">
+          <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <div style="margin-top: 10px; color: #667eea; font-weight: 600;">En attente de la fenêtre de téléchargement...</div>
+          <style>
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+        </div>`,
+        'info'
       );
       
       // Démarrer le polling du statut Python
@@ -856,8 +871,6 @@ if (isYouTubeMusic) {
   }
 
   // Polling du statut Python
-  let statusPollingInterval = null;
-  
   function startStatusPolling() {
     log('🔄', 'Démarrage du polling du statut Python...');
     
@@ -879,19 +892,55 @@ if (isYouTubeMusic) {
           clearInterval(statusPollingInterval);
           statusPollingInterval = null;
           
-          // Afficher le message de succès
+          // Supprimer l'animation loading
+          const messages = document.getElementById('grabsong-messages');
+          if (messages) {
+            const loadingDivs = messages.querySelectorAll('div');
+            loadingDivs.forEach(div => {
+              if (div.textContent.includes('En attente de la fenêtre')) {
+                div.remove();
+              }
+            });
+          }
+          
+          // Étape Python 1: Musique sauvegardée
           addChatMessage(
-            `<strong>🎉 Téléchargement terminé !</strong><br><br>
-            📁 Fichier: <strong>${response.last_completed.filename}</strong><br>
-            📂 Dossier: ${response.last_completed.path}<br><br>
-            <em>✨ L'extension va se réinitialiser dans 3 secondes...</em>`,
+            `<strong>✅ Musique téléchargée</strong><br>
+            <small>📁 ${response.last_completed.filename}</small>`,
             'success'
           );
           
-          // Reset après 3 secondes
+          // Étape Python 2: Organisation
           setTimeout(() => {
-            resetExtension();
-          }, 3000);
+            addChatMessage(
+              `<strong>✅ Musique organisée</strong><br>
+              <small>📂 Déplacée dans music/Artiste/Album/</small>`,
+              'success'
+            );
+            
+            // Message final (UNE SEULE FOIS)
+            setTimeout(() => {
+              // Vérifier qu'il n'existe pas déjà
+              const existingFinal = messages.querySelector('[data-final-message]');
+              if (!existingFinal) {
+                const finalDiv = document.createElement('div');
+                finalDiv.className = 'grabsong-message success';
+                finalDiv.setAttribute('data-final-message', 'true');
+                finalDiv.innerHTML = `
+                  <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 5px;">
+                    <strong style="color: #2e7d32;">🎉 Processus terminé !</strong><br><br>
+                    <small>L'extension va se réinitialiser dans 3 secondes...</small>
+                  </div>
+                `;
+                messages.appendChild(finalDiv);
+              }
+              
+              // Reset après 3 secondes
+              setTimeout(() => {
+                resetExtension();
+              }, 3000);
+            }, 500);
+          }, 500);
         }
         
         if (response && response.last_error) {

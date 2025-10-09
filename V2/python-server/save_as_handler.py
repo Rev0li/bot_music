@@ -21,6 +21,8 @@ UTILISATION:
 
 import time
 import os
+import ctypes
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -30,10 +32,59 @@ try:
     from pywinauto.keyboard import send_keys
     import win32gui
     import win32con
+    import win32process
+    import psutil
     PYWINAUTO_AVAILABLE = True
 except ImportError:
     PYWINAUTO_AVAILABLE = False
-    print("⚠️ pywinauto non installé. Installez avec: pip install pywinauto pywin32")
+    print("⚠️ pywinauto non installé. Installez avec: pip install pywinauto pywin32 psutil")
+
+class InputBlocker:
+    """Gère le blocage temporaire du clavier/souris"""
+    
+    def __init__(self, timeout=3):
+        self.timeout = timeout
+        self.blocked = False
+        self._timer = None
+    
+    def block(self):
+        """Bloque les inputs avec timeout de sécurité"""
+        try:
+            ctypes.windll.user32.BlockInput(True)
+            self.blocked = True
+            print(f"🔒 Clavier/souris bloqués ({self.timeout}s)")
+            
+            # Timer de sécurité pour débloquer automatiquement
+            self._timer = threading.Timer(self.timeout, self._auto_unblock)
+            self._timer.start()
+        except Exception as e:
+            print(f"⚠️ Impossible de bloquer les inputs: {e}")
+    
+    def unblock(self):
+        """Débloque les inputs"""
+        if self._timer:
+            self._timer.cancel()
+        
+        if self.blocked:
+            try:
+                ctypes.windll.user32.BlockInput(False)
+                self.blocked = False
+                print("🔓 Clavier/souris débloqués")
+            except Exception as e:
+                print(f"⚠️ Erreur déblocage: {e}")
+    
+    def _auto_unblock(self):
+        """Déblocage automatique de sécurité"""
+        print("⏰ Déblocage automatique (timeout)")
+        self.unblock()
+    
+    def __enter__(self):
+        self.block()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.unblock()
+
 
 class SaveAsHandler:
     """
@@ -47,6 +98,7 @@ class SaveAsHandler:
         
         self.window = None
         self.app = None
+        self._saved_clipboard = None
         
         # Mots-clés à chercher dans le titre (n'importe où)
         self.window_keywords = [
@@ -61,6 +113,63 @@ class SaveAsHandler:
         self._scan_existing_windows()
         
         print("✅ SaveAsHandler initialisé")
+    
+    def _get_browser_pids(self):
+        """
+        Récupère les PIDs des processus navigateurs (Chrome, Edge, Firefox)
+        
+        Returns:
+            list: Liste des PIDs des navigateurs
+        """
+        browser_names = ['chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe', 'opera.exe']
+        pids = []
+        
+        try:
+            for proc in psutil.process_iter(['pid', 'name']):
+                if proc.info['name'].lower() in browser_names:
+                    pids.append(proc.info['pid'])
+        except Exception as e:
+            print(f"⚠️ Erreur lors de la recherche des navigateurs: {e}")
+        
+        return pids
+    
+    def _save_clipboard(self):
+        """Sauvegarde le contenu actuel du clipboard"""
+        try:
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            try:
+                self._saved_clipboard = win32clipboard.GetClipboardData()
+            except:
+                self._saved_clipboard = None
+            win32clipboard.CloseClipboard()
+        except Exception as e:
+            print(f"⚠️ Impossible de sauvegarder le clipboard: {e}")
+            self._saved_clipboard = None
+    
+    def _restore_clipboard(self):
+        """Restaure le contenu du clipboard"""
+        if self._saved_clipboard is not None:
+            try:
+                import win32clipboard
+                win32clipboard.OpenClipboard()
+                win32clipboard.EmptyClipboard()
+                win32clipboard.SetClipboardText(self._saved_clipboard)
+                win32clipboard.CloseClipboard()
+            except Exception as e:
+                print(f"⚠️ Impossible de restaurer le clipboard: {e}")
+    
+    def _set_clipboard(self, text):
+        """Met un texte dans le clipboard"""
+        try:
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardText(text)
+            win32clipboard.CloseClipboard()
+        except Exception as e:
+            print(f"❌ Erreur clipboard: {e}")
+            raise
     
     def _scan_existing_windows(self):
         """Scanne et mémorise les fenêtres existantes pour les ignorer"""
@@ -91,34 +200,20 @@ class SaveAsHandler:
             window: Fenêtre trouvée ou None
         """
         print(f"🔍 Recherche de la fenêtre 'Save As' (timeout: {timeout}s)...")
-        print(f"⏳ En attente... (le script ne fera rien tant qu'une fenêtre n'apparaît pas)")
         
         start_time = time.time()
         last_print = 0
         
         while time.time() - start_time < timeout:
-            # Afficher un point toutes les 5 secondes pour montrer que ça tourne
             elapsed = int(time.time() - start_time)
-            if elapsed > last_print and elapsed % 5 == 0:
-                print(f"   ... toujours en attente ({elapsed}s / {timeout}s)")
+            
+            # Afficher un point toutes les 10 secondes
+            if elapsed > last_print and elapsed % 10 == 0:
+                print(f"   ⏳ Toujours en attente... ({elapsed}s / {timeout}s)")
                 last_print = elapsed
+            
             try:
-                # Chercher toutes les fenêtres avec les deux backends
-                all_windows = []
-                
-                # Backend UIA (moderne)
-                try:
-                    all_windows.extend(Desktop(backend="uia").windows())
-                except Exception:
-                    pass
-                
-                # Backend Win32 (classique - souvent meilleur pour les dialogues)
-                try:
-                    all_windows.extend(Desktop(backend="win32").windows())
-                except Exception:
-                    pass
-                
-                # Méthode alternative: Énumérer toutes les fenêtres avec win32gui
+                # Méthode win32gui: Énumérer toutes les fenêtres
                 def enum_windows_callback(hwnd, results):
                     if win32gui.IsWindowVisible(hwnd):
                         title = win32gui.GetWindowText(hwnd)
@@ -126,62 +221,27 @@ class SaveAsHandler:
                             results.append((hwnd, title))
                 
                 win32_windows = []
-                try:
-                    win32gui.EnumWindows(enum_windows_callback, win32_windows)
-                except Exception:
-                    pass
+                win32gui.EnumWindows(enum_windows_callback, win32_windows)
                 
-                # Debug: Afficher le nombre de fenêtres toutes les 20 secondes
-                if elapsed % 20 == 0 and elapsed > 0:
-                    print(f"   📊 Fenêtres scannées: {len(all_windows)} (pywinauto) + {len(win32_windows)} (win32gui)")
-                
-                new_windows_found = []
-                
-                for window in all_windows:
-                    try:
-                        window_title = window.window_text()
-                        window_handle = window.handle
-                        
-                        # Ignorer les fenêtres existantes
-                        if window_handle in self.existing_windows:
-                            continue
-                        
-                        # C'est une nouvelle fenêtre
-                        if window_title and len(window_title) > 0:
-                            new_windows_found.append(window_title)
-                        
-                        # Vérifier si le titre correspond
-                        for keyword in self.window_keywords:
-                            if keyword.lower() in window_title.lower():
-                                print(f"✅ Nouvelle fenêtre trouvée: '{window_title}'")
-                                self.window = window
-                                return window
-                                
-                    except Exception:
-                        continue
-                
-                # Vérifier aussi les fenêtres win32gui
+                # Vérifier les fenêtres
                 for hwnd, title in win32_windows:
-                    if hwnd not in self.existing_windows:
-                        if title:
-                            new_windows_found.append(title)
-                        
-                        # Vérifier si le titre correspond
-                        for keyword in self.window_keywords:
-                            if keyword.lower() in title.lower():
-                                print(f"✅ Nouvelle fenêtre trouvée (win32gui): '{title}'")
-                                # Créer un wrapper pywinauto pour cette fenêtre
-                                try:
-                                    from pywinauto.application import Application
-                                    app = Application(backend="win32").connect(handle=hwnd)
-                                    self.window = app.window(handle=hwnd)
-                                    return self.window
-                                except:
-                                    print(f"⚠️ Impossible de créer un wrapper pour cette fenêtre")
-                
-                # Debug: Afficher les nouvelles fenêtres toutes les 20 secondes (si beaucoup)
-                if elapsed % 20 == 0 and elapsed > 0 and len(new_windows_found) > 5:
-                    print(f"   🆕 {len(new_windows_found)} nouvelles fenêtres détectées")
+                    # Ignorer les fenêtres existantes
+                    if hwnd in self.existing_windows:
+                        continue
+                    
+                    # Vérifier si le titre correspond
+                    for keyword in self.window_keywords:
+                        if keyword.lower() in title.lower():
+                            print(f"✅ Nouvelle fenêtre trouvée: '{title}'")
+                            
+                            # Créer un wrapper pywinauto pour cette fenêtre
+                            try:
+                                from pywinauto.application import Application
+                                app = Application(backend="win32").connect(handle=hwnd)
+                                self.window = app.window(handle=hwnd)
+                                return self.window
+                            except Exception as e:
+                                print(f"⚠️ Impossible de créer un wrapper: {e}")
                 
                 # Attendre un peu avant de réessayer
                 time.sleep(0.5)
@@ -195,7 +255,7 @@ class SaveAsHandler:
     
     def fill_filename(self, filename):
         """
-        Remplit le champ "Nom du fichier" - Méthode directe
+        Remplit le champ "Nom du fichier" via clipboard (rapide)
         
         Args:
             filename (str): Nom du fichier à sauvegarder
@@ -206,19 +266,20 @@ class SaveAsHandler:
         try:
             print(f"📝 Remplissage du nom de fichier: {filename}")
             
-            # Méthode directe: On est déjà sur le champ filename par défaut
+            # Mettre le filename dans le clipboard
+            self._set_clipboard(filename)
+            
+            # Focus et coller
             self.window.set_focus()
-            time.sleep(0.3)
+            time.sleep(0.1)
             
-            # Sélectionner tout
+            # Sélectionner tout et coller
             send_keys("^a")
-            time.sleep(0.2)
+            time.sleep(0.05)
+            send_keys("^v")
+            time.sleep(0.1)
             
-            # Taper le nouveau nom
-            send_keys(filename, with_spaces=True)
-            time.sleep(0.3)
-            
-            print("✅ Nom de fichier rempli")
+            print("✅ Nom de fichier rempli (collé)")
             return True
             
         except Exception as e:
@@ -227,7 +288,7 @@ class SaveAsHandler:
     
     def change_folder(self, target_folder):
         """
-        Change le dossier de destination - Méthode directe
+        Change le dossier de destination via clipboard (rapide)
         
         Args:
             target_folder (str): Chemin du dossier cible
@@ -238,25 +299,24 @@ class SaveAsHandler:
         try:
             print(f"📁 Changement de dossier vers: {target_folder}")
             
-            # Méthode directe: Ctrl+L pour la barre d'adresse
+            # Mettre le path dans le clipboard
+            self._set_clipboard(target_folder)
+            
+            # Focus
             self.window.set_focus()
-            time.sleep(0.3)
+            time.sleep(0.1)
             
-            # Aller à la barre d'adresse
+            # Aller à la barre d'adresse et coller
             send_keys("^l")
-            time.sleep(0.3)
+            time.sleep(0.1)
+            send_keys("^v")
+            time.sleep(0.1)
             
-            # Sélectionner tout et taper le chemin
-            # send_keys("^a")
-            # time.sleep(0.2)
-            send_keys(target_folder, with_spaces=True)
-            time.sleep(0.3)
-            
-            # Première Entrée pour valider le changement de dossier
+            # Entrée pour valider le changement de dossier
             send_keys("{ENTER}")
-            time.sleep(0.8)  # Attendre que le dossier change
+            time.sleep(0.3)
             
-            print("✅ Dossier changé")
+            print("✅ Dossier changé (collé)")
             return True
             
         except Exception as e:
@@ -441,10 +501,12 @@ class SaveAsHandler:
         
         WORKFLOW:
         1. Détecter la fenêtre
-        2. Remplir le filename (Ctrl+A → Taper)
-        3. Changer le PATH (Ctrl+L → Taper → Entrée)
-        4. Valider (Entrée)
-        5. Attendre la fin du téléchargement
+        2. Sauvegarder clipboard + Bloquer inputs (3s)
+        3. Remplir filename via clipboard (Ctrl+A → Ctrl+V)
+        4. Changer PATH via clipboard (Ctrl+L → Ctrl+V → Entrée)
+        5. Valider (Entrée)
+        6. Débloquer inputs + Restaurer clipboard
+        7. Attendre la fin du téléchargement
         
         Args:
             filename (str): Nom du fichier
@@ -452,7 +514,7 @@ class SaveAsHandler:
             timeout (int): Temps d'attente maximum
             
         Returns:
-            bool: True si succès complet (fichier téléchargé)
+            dict: Informations sur le fichier téléchargé ou None
         """
         print("\n" + "="*50)
         print("🚀 Démarrage de l'automatisation 'Save As'")
@@ -461,27 +523,39 @@ class SaveAsHandler:
         # 1. Attendre la fenêtre
         window = self.find_save_as_window(timeout)
         if not window:
-            return False
+            return None
         
-        time.sleep(0.5)
+        time.sleep(0.3)
         
-        # 2. Remplir le nom de fichier EN PREMIER
-        if not self.fill_filename(filename):
-            print("❌ Échec du remplissage du nom de fichier")
-            return False
+        # 2. Sauvegarder le clipboard et bloquer les inputs
+        self._save_clipboard()
         
-        time.sleep(0.5)
-        
-        # 3. Changer le dossier
-        if not self.change_folder(target_folder):
-            print("⚠️ Échec du changement de dossier (continuera dans Downloads)")
-        
-        time.sleep(0.5)
-        
-        # 4. Valider avec Entrée (après le changement de PATH)
-        if not self.click_save():
-            print("❌ Échec de la validation")
-            return False
+        try:
+            # Utiliser le context manager pour le blocage (3s max)
+            with InputBlocker(timeout=3):
+                # 3. Remplir le nom de fichier (via clipboard)
+                if not self.fill_filename(filename):
+                    print("❌ Échec du remplissage du nom de fichier")
+                    return None
+                
+                time.sleep(0.1)
+                
+                # 4. Changer le dossier (via clipboard)
+                if not self.change_folder(target_folder):
+                    print("⚠️ Échec du changement de dossier (continuera dans Downloads)")
+                
+                time.sleep(0.1)
+                
+                # 5. Valider avec Entrée
+                if not self.click_save():
+                    print("❌ Échec de la validation")
+                    return None
+            
+            # Les inputs sont automatiquement débloqués ici (sortie du context manager)
+            
+        finally:
+            # 6. Restaurer le clipboard
+            self._restore_clipboard()
         
         print("\n" + "="*50)
         print("✅ Formulaire validé - Téléchargement en cours...")
