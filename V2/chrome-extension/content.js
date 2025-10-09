@@ -153,9 +153,39 @@ if (isYouTubeMusic) {
   
   // Variables pour le chat dépliant
   let chatExpanded = false;
-  let chatXOffset = 0;
-  let chatYOffset = 0;
   let statusPollingInterval = null;
+  let settingsExpanded = false;
+  
+  // Paramètres par défaut
+  let settings = {
+    position: 'bottom-right', // top-left, top-right, bottom-left, bottom-right
+    opacity: 0.95 // 0.5 à 1
+  };
+  
+  // Charger les settings
+  function loadSettings() {
+    chrome.storage.local.get(['grabsong_settings'], (result) => {
+      if (result.grabsong_settings) {
+        settings = { ...settings, ...result.grabsong_settings };
+      }
+      applySettings();
+    });
+  }
+  
+  // Appliquer les settings
+  function applySettings() {
+    const container = document.getElementById('grabsong-container');
+    if (!container) return;
+    
+    // Position
+    container.style.top = settings.position.includes('top') ? '20px' : 'auto';
+    container.style.bottom = settings.position.includes('bottom') ? '20px' : 'auto';
+    container.style.left = settings.position.includes('left') ? '20px' : 'auto';
+    container.style.right = settings.position.includes('right') ? '20px' : 'auto';
+    
+    // Opacité
+    container.style.opacity = settings.opacity;
+  }
   
   // Créer le conteneur qui combine bouton et chat
   function createChatContainer() {
@@ -167,212 +197,221 @@ if (isYouTubeMusic) {
     container.id = 'grabsong-container';
     container.style.cssText = `
       position: fixed;
-      bottom: 20px;
-      right: 20px;
       z-index: 999999;
       transition: all 0.3s ease;
-      width: 200px;
+      width: 220px;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
+      align-items: stretch;
     `;
     
-    // Créer le bouton à l'intérieur
-    const button = document.createElement('button');
-    button.id = 'grabsong-btn';
-    button.innerHTML = `
-      <span style="font-size: 20px; margin-right: 8px;">🎵</span>
-      <span style="font-weight: 600;">GrabSong</span>
-    `;
-    button.title = 'Télécharger cette chanson';
-    button.style.cssText = `
+    // Widget principal
+    const widget = document.createElement('div');
+    widget.id = 'grabsong-widget';
+    widget.style.cssText = `
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 16px 28px;
-      border-radius: 50px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
+      border-radius: 15px;
       box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-      user-select: none;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    `;
-    
-    // Effet hover
-    button.addEventListener('mouseenter', () => {
-      button.style.transform = 'translateY(-2px)';
-      button.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.5)';
-    });
-    button.addEventListener('mouseleave', () => {
-      button.style.transform = 'translateY(0)';
-      button.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
-    });
-    
-    // Créer le chat (caché par défaut) - se déplie vers le haut et la gauche
-    const chatPanel = document.createElement('div');
-    chatPanel.id = 'grabsong-chat';
-    chatPanel.style.cssText = `
-      width: 380px;
-      max-height: 0;
-      background: white;
-      border-radius: 15px 15px 0 0;
-      box-shadow: 0 -8px 30px rgba(0,0,0,0.3);
       overflow: hidden;
-      transition: max-height 0.3s ease, opacity 0.3s ease;
-      opacity: 0;
-      display: flex;
-      flex-direction: column-reverse;
-      position: absolute;
-      bottom: 100%;
-      right: 0;
-      margin-bottom: 5px;
+      transition: all 0.3s ease;
     `;
     
-    chatPanel.innerHTML = `
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 15px; display: flex; justify-content: flex-end; align-items: center; border-radius: 15px 15px 0 0;" id="grabsong-header">
-        <button id="grabsong-minimize" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">−</button>
-      </div>
-      <div id="grabsong-messages" style="flex: 1; overflow-y: auto; padding: 15px; max-height: 450px; background: #f5f5f5; display: flex; flex-direction: column; gap: 10px;">
-        <div class="grabsong-message system" style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
-          <strong>👋 Bienvenue !</strong><br>
-          <small>Cliquez pour télécharger une chanson</small>
+    widget.innerHTML = `
+      <!-- Header (toujours visible) -->
+      <div id="grabsong-header" style="padding: 12px 15px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2);">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: white;">
+          <span style="font-size: 20px;">🎵</span>
+          <span style="font-weight: 600; font-size: 16px;">GrabSong</span>
         </div>
       </div>
+      
+      <!-- Menu principal (boutons) -->
+      <div id="grabsong-menu" style="display: flex; flex-direction: column; gap: 8px; padding: 12px;">
+        <button id="grabsong-dl-btn" style="background: rgba(255,255,255,0.9); color: #667eea; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
+          <span style="font-size: 18px;">⬇️</span>
+          <span>Télécharger</span>
+        </button>
+        <button id="grabsong-settings-btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
+          <span style="font-size: 18px;">⚙️</span>
+          <span>Paramètres</span>
+        </button>
+      </div>
+      
+      <!-- Contenu Download (caché par défaut) -->
+      <div id="grabsong-content-dl" style="display: none;">
+        <div id="grabsong-messages" style="padding: 15px; max-height: 450px; background: #f5f5f5; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+          <div class="grabsong-message system" style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
+            <strong>👋 Bienvenue !</strong><br>
+            <small>Lancement du téléchargement...</small>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Contenu Settings (caché par défaut) -->
+      <div id="grabsong-content-settings" style="display: none; padding: 15px; background: white;">
+        <div style="margin-bottom: 15px;">
+          <strong style="color: #667eea;">📍 Position</strong>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+            <button class="position-btn" data-position="top-left" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↖️ Haut Gauche</button>
+            <button class="position-btn" data-position="top-right" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↗️ Haut Droite</button>
+            <button class="position-btn" data-position="bottom-left" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↙️ Bas Gauche</button>
+            <button class="position-btn" data-position="bottom-right" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↘️ Bas Droite</button>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <strong style="color: #667eea;">🎨 Transparence</strong>
+          <div style="margin-top: 8px;">
+            <input type="range" id="opacity-slider" min="50" max="100" value="95" style="width: 100%;">
+            <div style="text-align: center; font-size: 12px; color: #666; margin-top: 5px;">
+              <span id="opacity-value">95</span>%
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer avec bouton Fermer (caché par défaut) -->
+      <div id="grabsong-footer" style="display: none; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-top: 1px solid rgba(255,255,255,0.2);">
+        <button id="grabsong-close-btn" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+          Fermer
+        </button>
+      </div>
     `;
     
-    container.appendChild(chatPanel);
-    container.appendChild(button);
+    container.appendChild(widget);
     document.body.appendChild(container);
     
-    // Gestion du clic sur le bouton
-    button.addEventListener('click', (e) => {
-      if (!e.altKey) {
-        toggleChat();
-      }
+    // Event Listeners
+    
+    // Bouton Download
+    document.getElementById('grabsong-dl-btn').addEventListener('click', () => {
+      showDownloadView();
     });
     
-    // Bouton minimiser
-    document.getElementById('grabsong-minimize').addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleChat();
+    // Bouton Settings
+    document.getElementById('grabsong-settings-btn').addEventListener('click', () => {
+      showSettingsView();
     });
     
-    // Rendre le conteneur déplaçable avec Alt + drag
-    setupDragging(container);
+    // Bouton Fermer
+    document.getElementById('grabsong-close-btn').addEventListener('click', () => {
+      showMenuView();
+    });
+    
+    // Boutons position
+    document.querySelectorAll('.position-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        settings.position = btn.dataset.position;
+        saveSettings();
+        applySettings();
+        updatePositionButtons();
+      });
+    });
+    
+    // Slider opacité
+    document.getElementById('opacity-slider').addEventListener('input', (e) => {
+      settings.opacity = e.target.value / 100;
+      document.getElementById('opacity-value').textContent = e.target.value;
+      applySettings();
+    });
+    
+    document.getElementById('opacity-slider').addEventListener('change', () => {
+      saveSettings();
+    });
+    
+    // Charger et appliquer les settings
+    loadSettings();
+    updatePositionButtons();
     
     log('✅', 'Chat container created');
   }
   
-  // Basculer entre bouton et chat
-  function toggleChat() {
-    const button = document.getElementById('grabsong-btn');
-    const chat = document.getElementById('grabsong-chat');
-    
-    if (!chatExpanded) {
-      // Ouvrir le chat (vers le haut)
-      button.style.borderRadius = '0 0 50px 50px';
-      chat.style.maxHeight = '550px';
-      chat.style.opacity = '1';
-      chatExpanded = true;
-      
-      // Si c'est la première ouverture, lancer le téléchargement
-      const messages = document.getElementById('grabsong-messages');
-      if (messages.children.length === 1) {
-        performAutoShare();
+  // Sauvegarder les settings
+  function saveSettings() {
+    chrome.storage.local.set({ grabsong_settings: settings });
+  }
+  
+  // Mettre à jour les boutons de position
+  function updatePositionButtons() {
+    document.querySelectorAll('.position-btn').forEach(btn => {
+      if (btn.dataset.position === settings.position) {
+        btn.style.borderColor = '#667eea';
+        btn.style.background = '#f0f7ff';
+        btn.style.fontWeight = '600';
+      } else {
+        btn.style.borderColor = '#ddd';
+        btn.style.background = 'white';
+        btn.style.fontWeight = 'normal';
       }
-    } else {
-      // Fermer le chat
-      button.style.borderRadius = '50px';
-      chat.style.maxHeight = '0';
-      chat.style.opacity = '0';
-      chatExpanded = false;
+    });
+  }
+  
+  // Afficher la vue Menu (état initial)
+  function showMenuView() {
+    const menu = document.getElementById('grabsong-menu');
+    const contentDl = document.getElementById('grabsong-content-dl');
+    const contentSettings = document.getElementById('grabsong-content-settings');
+    const footer = document.getElementById('grabsong-footer');
+    const container = document.getElementById('grabsong-container');
+    
+    menu.style.display = 'flex';
+    contentDl.style.display = 'none';
+    contentSettings.style.display = 'none';
+    footer.style.display = 'none';
+    
+    // Réduire la largeur
+    container.style.width = '220px';
+    
+    chatExpanded = false;
+    settingsExpanded = false;
+  }
+  
+  // Afficher la vue Download
+  function showDownloadView() {
+    const menu = document.getElementById('grabsong-menu');
+    const contentDl = document.getElementById('grabsong-content-dl');
+    const contentSettings = document.getElementById('grabsong-content-settings');
+    const footer = document.getElementById('grabsong-footer');
+    const container = document.getElementById('grabsong-container');
+    
+    menu.style.display = 'none';
+    contentDl.style.display = 'block';
+    contentSettings.style.display = 'none';
+    footer.style.display = 'block';
+    
+    // Élargir le widget
+    container.style.width = '380px';
+    
+    chatExpanded = true;
+    settingsExpanded = false;
+    
+    // Lancer le téléchargement si première fois
+    const messages = document.getElementById('grabsong-messages');
+    if (messages.children.length === 1) {
+      performAutoShare();
     }
   }
   
-  // Configuration du drag pour le conteneur
-  function setupDragging(container) {
-    let isDragging = false;
-    let hasMoved = false;
-    let startX, startY;
-    
+  // Afficher la vue Settings
+  function showSettingsView() {
+    const menu = document.getElementById('grabsong-menu');
+    const contentDl = document.getElementById('grabsong-content-dl');
+    const contentSettings = document.getElementById('grabsong-content-settings');
     const footer = document.getElementById('grabsong-footer');
-    const button = document.getElementById('grabsong-btn');
+    const container = document.getElementById('grabsong-container');
     
-    // Optimisation: utiliser will-change pour préparer l'animation
-    container.style.willChange = 'transform';
+    menu.style.display = 'none';
+    contentDl.style.display = 'none';
+    contentSettings.style.display = 'block';
+    footer.style.display = 'block';
     
-    // Drag depuis le footer (quand chat ouvert) ou bouton (quand fermé)
-    footer.addEventListener('mousedown', (e) => {
-      if (e.altKey) {
-        startDrag(e);
-      }
-    });
+    // Largeur moyenne pour settings
+    container.style.width = '280px';
     
-    button.addEventListener('mousedown', (e) => {
-      if (e.altKey) {
-        startDrag(e);
-      }
-    });
-    
-    function startDrag(e) {
-      startX = e.clientX - chatXOffset;
-      startY = e.clientY - chatYOffset;
-      isDragging = true;
-      hasMoved = false;
-      container.style.cursor = 'grabbing';
-      
-      // Désactiver les transitions pendant le drag
-      container.style.transition = 'none';
-      
-      e.preventDefault();
-    }
-    
-    // Utiliser requestAnimationFrame pour des animations fluides
-    let animationFrameId = null;
-    
-    document.addEventListener('mousemove', (e) => {
-      if (isDragging) {
-        e.preventDefault();
-        
-        // Annuler l'animation précédente si elle existe
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
-        }
-        
-        // Planifier la mise à jour pour le prochain frame
-        animationFrameId = requestAnimationFrame(() => {
-          chatXOffset = e.clientX - startX;
-          chatYOffset = e.clientY - startY;
-          hasMoved = true;
-          
-          // Utiliser translate3d pour l'accélération GPU
-          container.style.transform = `translate3d(${chatXOffset}px, ${chatYOffset}px, 0)`;
-        });
-      }
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false;
-        container.style.cursor = '';
-        
-        // Réactiver les transitions
-        container.style.transition = 'all 0.3s ease';
-        
-        // Nettoyer l'animation frame
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
-          animationFrameId = null;
-        }
-      }
-    });
+    chatExpanded = false;
+    settingsExpanded = true;
   }
+  
   
   // Ajouter un message au chat
   function addChatMessage(message, type = 'info') {
@@ -593,8 +632,49 @@ if (isYouTubeMusic) {
       
       songData.link = await getShareLink();
       
-      if (!songData.link) {
-        addChatMessage('<strong>❌ Erreur:</strong> Impossible d\'obtenir le lien de la chanson.', 'error');
+      if (!songData.link || !songData.title) {
+        // Aucune musique en cours ou erreur d'extraction
+        addChatMessage(
+          `<div style="background: #fff3e0; border: 2px solid #ff9800; border-radius: 10px; padding: 15px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
+            <strong style="color: #e65100; font-size: 16px;">Aucune musique détectée</strong>
+            <p style="margin: 10px 0; color: #666; font-size: 14px;">
+              Assurez-vous qu'une musique est en cours de lecture sur YouTube Music
+            </p>
+            <button id="retry-btn" style="background: #ff9800; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; margin-top: 10px; transition: all 0.2s;">
+              🔄 Réessayer
+            </button>
+            <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+              💡 N'oubliez pas de lancer une musique !
+            </p>
+          </div>`,
+          'warning'
+        );
+        
+        // Event listener pour le bouton Retry
+        setTimeout(() => {
+          const retryBtn = document.getElementById('retry-btn');
+          if (retryBtn) {
+            retryBtn.addEventListener('click', () => {
+              // Clear les messages et recommencer
+              const messages = document.getElementById('grabsong-messages');
+              while (messages.children.length > 1) {
+                messages.removeChild(messages.lastChild);
+              }
+              performAutoShare();
+            });
+            
+            retryBtn.addEventListener('mouseenter', () => {
+              retryBtn.style.background = '#f57c00';
+              retryBtn.style.transform = 'scale(1.05)';
+            });
+            retryBtn.addEventListener('mouseleave', () => {
+              retryBtn.style.background = '#ff9800';
+              retryBtn.style.transform = 'scale(1)';
+            });
+          }
+        }, 100);
+        
         return;
       }
       
@@ -815,7 +895,7 @@ if (isYouTubeMusic) {
       }, (response) => {
         if (response && response.success) {
           log('✅', 'Données envoyées à Python:', response);
-          addChatMessage('<strong>✅</strong> Données sauvegardées sur le serveur', 'success');
+          // Message supprimé - pas besoin d'afficher
         } else {
           log('⚠️', 'Python non connecté:', response);
           addChatMessage(
@@ -903,44 +983,81 @@ if (isYouTubeMusic) {
             });
           }
           
-          // Étape Python 1: Musique sauvegardée
-          addChatMessage(
-            `<strong>✅ Musique téléchargée</strong><br>
-            <small>📁 ${response.last_completed.filename}</small>`,
-            'success'
-          );
+          // Extraire artiste et album du filename
+          const filename = response.last_completed.filename;
+          let artist = 'Unknown';
+          let album = 'Unknown';
           
-          // Étape Python 2: Organisation
-          setTimeout(() => {
-            addChatMessage(
-              `<strong>✅ Musique organisée</strong><br>
-              <small>📂 Déplacée dans music/Artiste/Album/</small>`,
-              'success'
-            );
+          const artistMatch = filename.match(/art=([^]+?)(?:\s+alb=|$)/);
+          const albumMatch = filename.match(/alb=([^]+?)(?:\s+N=|$)/);
+          
+          if (artistMatch) artist = artistMatch[1].trim();
+          if (albumMatch) album = albumMatch[1].trim();
+          
+          // Clear tous les messages sauf le premier (bienvenue)
+          while (messages.children.length > 1) {
+            messages.removeChild(messages.lastChild);
+          }
+          
+          // Message final unique avec toutes les infos
+          const finalDiv = document.createElement('div');
+          finalDiv.className = 'grabsong-message success';
+          finalDiv.setAttribute('data-final-message', 'true');
+          finalDiv.innerHTML = `
+            <div style="background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);">
+              <div style="text-align: center; margin-bottom: 15px;">
+                <span style="font-size: 32px;">✅</span>
+                <div style="font-size: 18px; font-weight: 700; color: #2e7d32; margin-top: 8px;">Téléchargement terminé !</div>
+              </div>
+              
+              <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">📁 Fichier</div>
+                <div style="font-size: 13px; font-weight: 600; color: #333; word-break: break-all;">${filename}</div>
+              </div>
+              
+              <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">📂 Organisé dans</div>
+                <div style="font-size: 14px; font-weight: 600; color: #667eea;">${artist} / ${album}</div>
+              </div>
+              
+              <div style="text-align: center; padding-top: 12px; border-top: 2px solid #e0e0e0;">
+                <div style="font-size: 13px; color: #666; margin-bottom: 8px;">Reset dans <span id="countdown">3</span> secondes...</div>
+                <div style="background: #e0e0e0; height: 6px; border-radius: 3px; overflow: hidden;">
+                  <div id="progress-bar" style="background: linear-gradient(90deg, #4caf50, #66bb6a); height: 100%; width: 100%; transition: width 0.1s linear;"></div>
+                </div>
+              </div>
+            </div>
+          `;
+          messages.appendChild(finalDiv);
+          
+          // Scroll vers le message
+          messages.scrollTop = messages.scrollHeight;
+          
+          // Animation countdown + barre de progression
+          let secondsLeft = 3;
+          const countdownEl = document.getElementById('countdown');
+          const progressBar = document.getElementById('progress-bar');
+          
+          const countdownInterval = setInterval(() => {
+            secondsLeft -= 0.1;
             
-            // Message final (UNE SEULE FOIS)
-            setTimeout(() => {
-              // Vérifier qu'il n'existe pas déjà
-              const existingFinal = messages.querySelector('[data-final-message]');
-              if (!existingFinal) {
-                const finalDiv = document.createElement('div');
-                finalDiv.className = 'grabsong-message success';
-                finalDiv.setAttribute('data-final-message', 'true');
-                finalDiv.innerHTML = `
-                  <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 5px;">
-                    <strong style="color: #2e7d32;">🎉 Processus terminé !</strong><br><br>
-                    <small>L'extension va se réinitialiser dans 3 secondes...</small>
-                  </div>
-                `;
-                messages.appendChild(finalDiv);
+            if (secondsLeft <= 0) {
+              clearInterval(countdownInterval);
+              resetExtension();
+            } else {
+              // Afficher le nombre de secondes (arrondi supérieur, mais afficher 0 quand < 0.5)
+              if (countdownEl) {
+                const displaySeconds = secondsLeft < 0.5 ? 0 : Math.ceil(secondsLeft);
+                countdownEl.textContent = displaySeconds;
               }
               
-              // Reset après 3 secondes
-              setTimeout(() => {
-                resetExtension();
-              }, 3000);
-            }, 500);
-          }, 500);
+              // Barre de progression
+              if (progressBar) {
+                const percentage = Math.max(0, (secondsLeft / 3) * 100);
+                progressBar.style.width = `${percentage}%`;
+              }
+            }
+          }, 100);
         }
         
         if (response && response.last_error) {
