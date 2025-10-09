@@ -342,17 +342,54 @@ class SimpleAutoSaver:
         if self.log_callback:
             self.log_callback(message)
     
-    def simple_save(self, auto_click_save: bool = False) -> bool:
+    def simple_save(self, auto_click_save: bool = False, save_path: str = '') -> bool:
         """
         Méthode simple : Active la fenêtre "Save As" et colle.
         
         Args:
             auto_click_save (bool): Cliquer automatiquement sur Save
+            save_path (str): Chemin de sauvegarde à coller avant le nom du fichier
         
         Returns:
             bool: True si succès
         """
         self.log("🚀 Démarrage de la sauvegarde simple...")
+        
+        # Si un chemin de sauvegarde est défini, cliquer sur le champ PATH et y coller
+        if save_path:
+            self.log(f"📁 Navigation vers le chemin: {save_path}")
+            try:
+                import pyperclip
+                # Sauvegarder le contenu actuel du clipboard (nom du fichier)
+                original_clipboard = pyperclip.paste()
+                
+                # Attendre que la fenêtre soit prête
+                time.sleep(0.5)
+                
+                # Cliquer sur le champ de navigation (PATH) - généralement en haut de la fenêtre
+                # On utilise Alt+D pour sélectionner la barre d'adresse dans la plupart des dialogs
+                self.log("🎯 Sélection du champ de navigation...")
+                pyautogui.hotkey('alt', 'd')
+                time.sleep(0.3)
+                
+                # Coller le chemin de sauvegarde dans le champ PATH
+                pyperclip.copy(save_path)
+                time.sleep(0.2)
+                pyautogui.hotkey('ctrl', 'v')
+                time.sleep(0.3)
+                
+                # Appuyer sur Entrée pour naviguer vers ce dossier
+                self.log("⏎ Navigation vers le dossier...")
+                pyautogui.press('enter')
+                time.sleep(0.5)
+                
+                # Restaurer le clipboard original (nom du fichier)
+                pyperclip.copy(original_clipboard)
+                time.sleep(0.2)
+                
+                self.log("✅ Navigation vers le dossier effectuée")
+            except Exception as e:
+                self.log(f"⚠️ Erreur lors de la navigation: {str(e)}")
         
         # Priorité à la fenêtre "Save As" !
         result = self.activator.activate_browser_and_paste()

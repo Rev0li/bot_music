@@ -1,0 +1,2 @@
+# Ce fichier permet de garder le dossier queue/ dans Git
+# Les fichiers à l'intérieur sont ignorés par .gitignore

@@ -29,7 +29,7 @@ class DownloadMonitor:
     Surveille les fenêtres "Enregistrer sous" et notifie l'utilisateur.
     """
     
-    def __init__(self, notification_callback: Optional[Callable] = None, log_callback: Optional[Callable] = None, auto_paste: bool = True, auto_save: bool = False):
+    def __init__(self, notification_callback: Optional[Callable] = None, log_callback: Optional[Callable] = None, auto_paste: bool = True, auto_save: bool = False, save_path: str = ''):
         """
         
         Args:
@@ -37,6 +37,7 @@ class DownloadMonitor:
             log_callback (Callable, optional): Fonction pour logger les messages
             auto_paste (bool): Coller automatiquement le nom de fichier
             auto_save (bool): Cliquer automatiquement sur Save
+            save_path (str): Chemin de sauvegarde à coller avant le nom du fichier
         """
         self.notification_callback = notification_callback
         self.log_callback = log_callback or print
@@ -48,6 +49,7 @@ class DownloadMonitor:
         self.last_detection_time = 0  # Cooldown pour éviter les détections multiples
         self.auto_paste = auto_paste
         self.auto_save = auto_save
+        self.save_path = save_path  # Chemin de sauvegarde personnalisé
         
         # AutoSaver pour l'automatisation
         if AUTO_SAVE_AVAILABLE:
@@ -346,7 +348,7 @@ class DownloadMonitor:
                 self.log("🎯 Activation de Brave et collage...")
                 from .process_activator import SimpleAutoSaver
                 simple_saver = SimpleAutoSaver(log_callback=self.log)
-                result = simple_saver.simple_save(auto_click_save=self.auto_save)
+                result = simple_saver.simple_save(auto_click_save=self.auto_save, save_path=self.save_path)
                 if result:
                     self.log("✅ Automatisation terminée avec succès")
                 else:
