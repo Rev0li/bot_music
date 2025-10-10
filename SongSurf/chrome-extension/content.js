@@ -95,6 +95,9 @@ let settings = {
 };
 
 let statusPollingInterval = null;
+let downloadHistory = []; // Historique des téléchargements (max 5)
+let previousHistoryLength = 0; // Pour détecter les suppressions
+let lastRenderedState = null; // Pour éviter les re-renders inutiles
 
 // Charger les settings
 function loadSettings() {
@@ -165,11 +168,25 @@ function createChatContainer() {
   
   widget.innerHTML = `
     <!-- Header -->
-    <div id="grabsong-header" style="padding: 16px; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.06);">
-      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #1d1d1f;">
-        <span style="font-size: 20px;">🎵</span>
-        <span style="font-weight: 600; font-size: 15px; letter-spacing: -0.3px;">GrabSong</span>
+    <div id="grabsong-header" style="padding: 10px 12px; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.06); position: relative;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #1d1d1f;">
+        <span style="font-size: 18px;">🎵</span>
+        <span style="font-weight: 600; font-size: 14px; letter-spacing: -0.3px;">SurfSong</span>
       </div>
+      <button id="grabsong-close-btn" style="
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #86868b;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 4px;
+        line-height: 1;
+        transition: color 0.2s;
+      ">×</button>
     </div>
     
     <!-- Menu principal -->
@@ -186,9 +203,9 @@ function createChatContainer() {
     
     <!-- Contenu Download -->
     <div id="grabsong-content-dl" style="display: none;">
-      <div id="grabsong-messages" style="padding: 15px; max-height: 450px; background: #f5f5f7; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-        <div class="grabsong-message system" style="background: white; padding: 14px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
-          <div style="font-size: 13px; color: #86868b;">Prêt à télécharger</div>
+      <div id="grabsong-messages" style="padding: 10px; max-height: 400px; background: #f5f5f7; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+        <div class="grabsong-message system" style="background: white; padding: 10px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+          <div style="font-size: 12px; color: #86868b;">Prêt à télécharger</div>
         </div>
       </div>
     </div>
@@ -252,9 +269,25 @@ function createChatContainer() {
     </div>
     
     <!-- Footer -->
-    <div id="grabsong-footer" style="display: none; padding: 12px; background: white; border-top: 1px solid rgba(0,0,0,0.06);">
-      <button id="grabsong-close-btn" style="width: 100%; padding: 11px; background: rgba(0,0,0,0.04); color: #1d1d1f; border: none; border-radius: 10px; font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);">
-        Fermer
+    <div id="grabsong-footer" style="display: none; padding: 10px; background: white; border-top: 1px solid rgba(0,0,0,0.06);">
+      <button id="grabsong-surf-again-btn" style="
+        width: 100%;
+        padding: 10px;
+        background: rgba(102, 126, 234, 0.08);
+        border: 1px solid rgba(102, 126, 234, 0.2);
+        color: #667eea;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      ">
+        <span>🏄</span>
+        <span>Surf Again</span>
       </button>
     </div>
   `;
@@ -265,7 +298,28 @@ function createChatContainer() {
   // Event Listeners
   document.getElementById('grabsong-dl-btn').addEventListener('click', showDownloadView);
   document.getElementById('grabsong-settings-btn').addEventListener('click', showSettingsView);
-  document.getElementById('grabsong-close-btn').addEventListener('click', showMenuView);
+  
+  // Bouton × en haut à droite pour revenir au menu
+  const closeBtn = document.getElementById('grabsong-close-btn');
+  closeBtn.addEventListener('click', showMenuView);
+  closeBtn.addEventListener('mouseenter', (e) => {
+    e.target.style.color = '#1d1d1f';
+  });
+  closeBtn.addEventListener('mouseleave', (e) => {
+    e.target.style.color = '#86868b';
+  });
+  
+  // Bouton "Surf Again" dans le footer
+  const surfAgainBtn = document.getElementById('grabsong-surf-again-btn');
+  surfAgainBtn.addEventListener('click', () => {
+    performDownload();
+  });
+  surfAgainBtn.addEventListener('mouseenter', (e) => {
+    e.target.style.background = 'rgba(102, 126, 234, 0.15)';
+  });
+  surfAgainBtn.addEventListener('mouseleave', (e) => {
+    e.target.style.background = 'rgba(102, 126, 234, 0.08)';
+  });
   
   document.querySelectorAll('.position-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -352,68 +406,10 @@ function showDownloadView() {
   document.getElementById('grabsong-content-dl').style.display = 'block';
   document.getElementById('grabsong-content-settings').style.display = 'none';
   document.getElementById('grabsong-footer').style.display = 'block';
-  document.getElementById('grabsong-container').style.width = '380px';
+  document.getElementById('grabsong-container').style.width = '280px';
   
-  // Afficher le bouton de démarrage
-  const messages = document.getElementById('grabsong-messages');
-  if (messages.children.length === 1) {
-    showStartButton();
-  }
-}
-
-// Afficher le bouton de démarrage
-function showStartButton() {
-  const messagesContainer = document.getElementById('grabsong-messages');
-  
-  messagesContainer.innerHTML = `
-    <div style="
-      background: white;
-      border-radius: 16px;
-      padding: 32px 20px;
-      text-align: center;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    ">
-      <div style="font-size: 56px; margin-bottom: 16px; opacity: 0.9;">🎵</div>
-      <strong style="font-size: 17px; display: block; margin-bottom: 8px; color: #1d1d1f; font-weight: 600; letter-spacing: -0.3px;">
-        Prêt à télécharger
-      </strong>
-      <p style="font-size: 13px; color: #86868b; margin-bottom: 24px; line-height: 1.4;">
-        Extrait et télécharge la chanson<br>en cours de lecture
-      </p>
-      <button id="start-download-btn" style="
-        padding: 13px 28px;
-        background: #007AFF;
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        font-size: 15px;
-        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-        letter-spacing: -0.2px;
-      ">
-        Télécharger
-      </button>
-    </div>
-  `;
-  
-  // Ajouter l'événement au bouton
-  const btn = document.getElementById('start-download-btn');
-  btn.addEventListener('click', () => {
-    messagesContainer.innerHTML = '<div style="padding: 10px; text-align: center; color: #999; font-size: 12px;">Extraction en cours...</div>';
-    performDownload();
-  });
-  
-  // Effet hover subtil
-  btn.addEventListener('mouseenter', () => {
-    btn.style.transform = 'scale(1.02)';
-    btn.style.boxShadow = '0 6px 16px rgba(0, 122, 255, 0.4)';
-  });
-  btn.addEventListener('mouseleave', () => {
-    btn.style.transform = 'scale(1)';
-    btn.style.boxShadow = '0 4px 12px rgba(0, 122, 255, 0.3)';
-  });
+  // Initialiser la liste des téléchargements
+  updateDownloadList({ queue_size: 0, in_progress: false });
 }
 
 // Afficher la vue Settings
@@ -421,11 +417,259 @@ function showSettingsView() {
   document.getElementById('grabsong-menu').style.display = 'none';
   document.getElementById('grabsong-content-dl').style.display = 'none';
   document.getElementById('grabsong-content-settings').style.display = 'block';
-  document.getElementById('grabsong-footer').style.display = 'block';
+  document.getElementById('grabsong-footer').style.display = 'none';
   document.getElementById('grabsong-container').style.width = '280px';
 }
 
-// Ajouter un message au chat
+// Afficher la liste des téléchargements (remplace les messages)
+function updateDownloadList(status) {
+  const messagesContainer = document.getElementById('grabsong-messages');
+  if (!messagesContainer) return;
+  
+  // Ne pas mettre à jour si le formulaire de validation est affiché
+  if (document.getElementById('grabsong-edit-form')) return;
+  
+  // Créer la liste des items
+  const items = [];
+  
+  // 1. Historique (5 derniers terminés) - en haut (plus ancien en premier)
+  downloadHistory.slice(-5).forEach(item => {
+    items.push({
+      state: 'song',
+      metadata: item.metadata,
+      canCancel: false,
+      isHistory: true
+    });
+  });
+  
+  // 2. En cours - au milieu
+  if (status.in_progress && status.current_download) {
+    items.push({
+      state: 'surf',
+      metadata: status.current_download.metadata,
+      canCancel: true
+    });
+  }
+  
+  // 3. En attente - en bas (simulé avec queue_size)
+  for (let i = 0; i < status.queue_size; i++) {
+    items.push({
+      state: 'extract',
+      metadata: { artist: 'En attente', title: `Position ${i + 1}` },
+      canCancel: false
+    });
+  }
+  
+  // Générer le HTML
+  const stateConfig = {
+    extract: { icon: '📝', label: 'Extraction', color: '#007AFF', bg: 'rgba(0, 122, 255, 0.08)' },
+    surf: { icon: '🔄', label: 'Conversion', color: '#FF9500', bg: 'rgba(255, 149, 0, 0.08)' },
+    song: { icon: '✓', label: 'Rangé', color: '#34C759', bg: 'rgba(52, 199, 89, 0.1)' }
+  };
+  
+  // Construire le HTML avec les items + bouton permanent
+  let html = '';
+  
+  // Ajouter les items s'il y en a
+  if (items.length > 0) {
+    html += items.map((item, index) => {
+      const config = stateConfig[item.state];
+      
+      // Effet cascade : minimiser les anciens téléchargements
+      const isMinimized = item.isHistory;
+      
+      // Pour l'historique (Rangé), afficher seulement l'icône + titre
+      if (item.state === 'song') {
+        return `
+          <div class="download-item history-item" style="
+            background: white;
+            border-radius: 10px;
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0.7;
+          ">
+            <div style="
+              width: 24px;
+              height: 24px;
+              border-radius: 8px;
+              background: ${config.bg};
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 14px;
+              flex-shrink: 0;
+              color: ${config.color};
+            ">${config.icon}</div>
+            <div style="
+              flex: 1;
+              min-width: 0;
+              font-size: 12px;
+              color: #1d1d1f;
+              font-weight: 500;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            ">${item.metadata.title}</div>
+          </div>
+        `;
+      }
+      
+      // Pour les items actifs (Extraction, Conversion)
+      return `
+        <div class="download-item" data-state="${item.state}" style="
+          background: white;
+          border-radius: 10px;
+          padding: 8px 10px;
+          margin-bottom: 4px;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+          border: 1px solid rgba(0, 0, 0, 0.04);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        ">
+          <div style="
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: ${config.bg};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+          ">${config.icon}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="
+              font-size: 10px;
+              font-weight: 600;
+              color: ${config.color};
+              margin-bottom: 2px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            ">${config.label}</div>
+            <div style="
+              font-size: 12px;
+              color: #1d1d1f;
+              font-weight: 600;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            ">${item.metadata.title}</div>
+            <div style="
+              font-size: 10px;
+              color: #86868b;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              margin-top: 1px;
+            ">${item.metadata.artist}</div>
+          </div>
+          ${item.canCancel ? `
+            <button onclick="event.stopPropagation(); cancelCurrentDownload();" style="
+              background: rgba(244, 67, 54, 0.1);
+              border: 1px solid rgba(244, 67, 54, 0.2);
+              color: #f44336;
+              width: 28px;
+              height: 28px;
+              border-radius: 6px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              transition: all 0.2s;
+              font-size: 12px;
+            ">❌</button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+  
+  // Si aucun item, afficher un message d'accueil
+  if (items.length === 0) {
+    html = `
+      <div style="
+        padding: 30px 20px;
+        text-align: center;
+        color: #86868b;
+      ">
+        <div style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;">🎵</div>
+        <div style="font-size: 13px; font-weight: 500;">Prêt à télécharger</div>
+        <div style="font-size: 11px; margin-top: 6px;">Cliquez sur "Surf Again" en bas</div>
+      </div>
+    `;
+  }
+  
+  // Créer une signature de l'état actuel pour détecter les vrais changements
+  const currentState = JSON.stringify({
+    historyCount: downloadHistory.length,
+    historyTitles: downloadHistory.map(h => h.metadata.title),
+    inProgress: status.in_progress,
+    currentTitle: status.current_download?.metadata?.title,
+    queueSize: status.queue_size
+  });
+  
+  // Mettre à jour seulement si l'état a vraiment changé
+  if (lastRenderedState !== currentState) {
+    const existingItems = messagesContainer.querySelectorAll('.download-item');
+    
+    // Si le nombre d'items est différent, on doit recréer (nouveau téléchargement ou suppression)
+    if (existingItems.length !== items.length) {
+      messagesContainer.innerHTML = html;
+    } else {
+      // Sinon, mettre à jour uniquement les données qui changent (sans recréer le DOM)
+      items.forEach((item, index) => {
+        const existingItem = existingItems[index];
+        if (!existingItem) return;
+        
+        const config = stateConfig[item.state];
+        
+        // Pour l'historique (une seule div de texte)
+        if (item.state === 'song') {
+          const titleEl = existingItem.querySelector('div:nth-child(2)');
+          if (titleEl && titleEl.textContent !== item.metadata.title) {
+            titleEl.textContent = item.metadata.title;
+          }
+        } else {
+          // Pour les items actifs (3 divs : état, titre, artiste)
+          const stateEl = existingItem.querySelector('div:nth-child(2) > div:nth-child(1)');
+          const titleEl = existingItem.querySelector('div:nth-child(2) > div:nth-child(2)');
+          const artistEl = existingItem.querySelector('div:nth-child(2) > div:nth-child(3)');
+          
+          if (stateEl && stateEl.textContent !== config.label) {
+            stateEl.textContent = config.label;
+            stateEl.style.color = config.color;
+          }
+          if (titleEl && titleEl.textContent !== item.metadata.title) {
+            titleEl.textContent = item.metadata.title;
+          }
+          if (artistEl && artistEl.textContent !== item.metadata.artist) {
+            artistEl.textContent = item.metadata.artist;
+          }
+        }
+      });
+    }
+    
+    lastRenderedState = currentState;
+  }
+}
+
+// Fonction globale pour annuler
+window.cancelCurrentDownload = async function() {
+  try {
+    await chrome.runtime.sendMessage({ action: 'cancel_download' });
+  } catch (error) {
+    console.error('Cancel error:', error);
+  }
+}
+
+// Ajouter un message au chat (gardé pour les erreurs uniquement)
 function addChatMessage(message, type = 'info') {
   const messagesContainer = document.getElementById('grabsong-messages');
   if (!messagesContainer) return;
@@ -454,22 +698,32 @@ style.textContent = `
   @keyframes slideIn {
     from {
       opacity: 0;
-      transform: translateX(20px);
+      transform: translateY(20px) scale(0.95);
     }
     to {
       opacity: 1;
-      transform: translateX(0);
+      transform: translateY(0) scale(1);
     }
   }
   
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(15px);
-    }
-    to {
+  @keyframes slideOut {
+    0% {
       opacity: 1;
-      transform: translateY(0);
+      transform: translateY(0) scale(1);
+      max-height: 100px;
+      margin-bottom: 4px;
+    }
+    50% {
+      opacity: 0.5;
+      transform: translateY(-20px) scale(0.97);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-40px) scale(0.9);
+      max-height: 0;
+      margin-bottom: 0;
+      padding-top: 0;
+      padding-bottom: 0;
     }
   }
   
@@ -484,26 +738,20 @@ style.textContent = `
     }
   }
   
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+  .download-item {
+    animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
   
-  @keyframes spin-reverse {
-    from {
-      transform: rotate(360deg);
-    }
-    to {
-      transform: rotate(0deg);
-    }
+  .download-item.removing {
+    animation: slideOut 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  
+  #grabsong-messages {
+    scroll-behavior: smooth;
   }
   
   .grabsong-message {
-    animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
   
   #grabsong-edit-form {
@@ -700,12 +948,10 @@ async function getShareLink() {
 // ============================================
 
 async function performDownload() {
-  log('🚀', '=== Starting GrabSong V3 ===');
+  log('🚀', '=== Starting SongSurf ===');
   
   try {
-    // Étape 1: Extraction
-    addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">🎵 Étape 1/3 : Extraction</div>Récupération des métadonnées...', 'info');
-    
+    // Extraction silencieuse
     const songData = await extractSongData();
     
     if (!songData.url || !songData.title) {
@@ -722,58 +968,28 @@ async function performDownload() {
       return;
     }
     
-    addChatMessage('<strong>✅</strong> Données extraites avec succès !', 'success');
-    
-    // Notification si mode album
-    if (songData.albumMode) {
-      addChatMessage(
-        `<div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 10px; padding: 12px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 20px;">⚠️</span>
-            <div>
-              <strong style="color: #856404; font-size: 14px;">Mode Album Détecté</strong>
-              <p style="margin: 5px 0 0 0; font-size: 12px; color: #856404;">
-                Album et Année extraits depuis le header de la page
-              </p>
-            </div>
-          </div>
-        </div>`,
-        'warning'
-      );
-    }
-    
     // Si auto-accept est activé, télécharger directement
     if (settings.autoAccept) {
-      addChatMessage(
-        `<div style="background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 10px; padding: 12px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 20px;">⚡</span>
-            <div>
-              <strong style="color: #2e7d32; font-size: 14px;">Acceptation automatique activée</strong>
-              <p style="margin: 5px 0 0 0; font-size: 12px; color: #2e7d32;">
-                🎤 ${songData.artist || 'N/A'} • 💿 ${songData.album || 'N/A'} • 🎵 ${songData.title || 'N/A'} • 📅 ${songData.year || 'N/A'}
-              </p>
-            </div>
-          </div>
-        </div>`,
-        'success'
-      );
-      
       // Lancer directement le téléchargement
-      setTimeout(() => {
-        startDownload(songData);
-      }, 1000);
+      startDownload(songData);
       return;
     }
     
-    // Étape 2: Vérification
-    addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">✏️ Étape 2/3 : Vérification</div>Vérifiez les informations', 'info');
-    
+    // Sinon, afficher le formulaire de vérification
     showEditForm(songData);
     
   } catch (error) {
     log('❌', 'Error:', error);
-    addChatMessage(`<strong>❌ Erreur:</strong> ${error.message}`, 'error');
+    addChatMessage(
+      `<div style="background: #ffebee; border: 2px solid #f44336; border-radius: 10px; padding: 15px; text-align: center;">
+        <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+        <strong style="color: #c62828; font-size: 16px;">Erreur</strong>
+        <p style="margin: 10px 0; color: #666; font-size: 14px;">
+          ${error.message}
+        </p>
+      </div>`,
+      'error'
+    );
   }
 }
 
@@ -860,8 +1076,8 @@ function showEditForm(songData) {
   // Bouton Annuler
   document.getElementById('cancel-btn').addEventListener('click', () => {
     formDiv.remove();
-    // Retour à l'écran d'accueil
-    showStartButton();
+    // Retour à la liste
+    updateDownloadList({ queue_size: 0, in_progress: false });
   });
   
   // Effet hover sur Annuler
@@ -901,11 +1117,7 @@ function showEditForm(songData) {
 // Lancer le téléchargement
 async function startDownload(songData) {
   try {
-    // Étape 3: Téléchargement
-    addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">⬇️ Étape 3/3 : Téléchargement</div>Envoi au serveur Python...', 'info');
-    
-    
-    // Envoyer au serveur Python
+    // Envoyer au serveur Python (ajout silencieux à la queue)
     const response = await chrome.runtime.sendMessage({
       action: 'download_song',
       data: songData
@@ -914,8 +1126,6 @@ async function startDownload(songData) {
     if (!response || !response.success) {
       throw new Error(response?.error || 'Serveur Python non accessible');
     }
-    
-    addChatMessage('<strong>✅</strong> Téléchargement démarré !', 'success');
     
     // Démarrer le polling du statut
     startStatusPolling();
@@ -948,14 +1158,61 @@ function startStatusPolling() {
     try {
       const status = await chrome.runtime.sendMessage({ action: 'get_status' });
       
-      if (status.in_progress && status.progress) {
-        updateProgress(status.progress);
-      } else if (status.last_completed) {
-        handleSuccess(status.last_completed);
-        clearInterval(statusPollingInterval);
-      } else if (status.last_error) {
-        handleError(status.last_error);
-        clearInterval(statusPollingInterval);
+      // Ajouter à l'historique si un téléchargement vient de se terminer
+      if (status.last_completed && status.last_completed.metadata) {
+        const lastInHistory = downloadHistory[downloadHistory.length - 1];
+        // Vérifier si ce n'est pas déjà dans l'historique
+        if (!lastInHistory || 
+            lastInHistory.metadata.title !== status.last_completed.metadata.title ||
+            lastInHistory.metadata.artist !== status.last_completed.metadata.artist) {
+          
+          // Si on va dépasser 5, animer la suppression du premier
+          if (downloadHistory.length >= 5) {
+            const messagesContainer = document.getElementById('grabsong-messages');
+            if (messagesContainer) {
+              const firstItem = messagesContainer.querySelector('.download-item');
+              if (firstItem) {
+                firstItem.classList.add('removing');
+                // Attendre la fin de l'animation avant de supprimer (800ms pour laisser l'animation complète)
+                setTimeout(() => {
+                  downloadHistory.shift();
+                  downloadHistory.push({
+                    metadata: status.last_completed.metadata,
+                    timestamp: Date.now()
+                  });
+                  updateDownloadList(status);
+                }, 800);
+                return; // Ne pas mettre à jour tout de suite
+              }
+            }
+          }
+          
+          downloadHistory.push({
+            metadata: status.last_completed.metadata,
+            timestamp: Date.now()
+          });
+          // Garder seulement les 5 derniers
+          if (downloadHistory.length > 5) {
+            downloadHistory.shift();
+          }
+        }
+      }
+      
+      // Mettre à jour la liste des téléchargements
+      updateDownloadList(status);
+      
+      // Gérer les erreurs
+      if (status.last_error) {
+        addChatMessage(
+          `<div style="background: #ffebee; border: 2px solid #f44336; border-radius: 10px; padding: 15px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+            <strong style="color: #c62828; font-size: 16px;">Erreur</strong>
+            <p style="margin: 10px 0; color: #666; font-size: 14px;">
+              ${status.last_error.error}
+            </p>
+          </div>`,
+          'error'
+        );
       }
     } catch (error) {
       log('❌', 'Polling error:', error);
@@ -963,176 +1220,128 @@ function startStatusPolling() {
   }, CONFIG.delays.statusPoll);
 }
 
-// Mettre à jour la progression
-function updateProgress(progress) {
-  let spinnerContainer = document.getElementById('spinner-container');
+// Mettre à jour l'affichage de la queue (OBSOLETE - remplacé par updateDownloadList)
+function updateQueueDisplay(status) {
+  // Cette fonction n'est plus utilisée
+  return;
   
-  // Créer le spinner si il n'existe pas
-  if (!spinnerContainer) {
-    const messagesContainer = document.getElementById('grabsong-messages');
+  if (status.queue_size > 0 || status.in_progress || status.last_completed) {
+    if (!queueDisplay) {
+      const messagesContainer = document.getElementById('grabsong-messages');
+      
+      queueDisplay = document.createElement('div');
+      queueDisplay.id = 'queue-display';
+      queueDisplay.style.cssText = `
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        color: white;
+        transition: all 0.3s ease;
+      `;
+      
+      messagesContainer.insertBefore(queueDisplay, messagesContainer.firstChild);
+    }
     
-    spinnerContainer = document.createElement('div');
-    spinnerContainer.id = 'spinner-container';
-    spinnerContainer.className = 'grabsong-message info';
-    spinnerContainer.style.cssText = `
-      background: white;
-      padding: 24px;
-      margin-bottom: 10px;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      text-align: center;
-    `;
+    const currentSong = status.current_download ? status.current_download.metadata : null;
+    const completedSong = status.last_completed ? status.last_completed.metadata : null;
+    const queueCount = status.queue_size;
     
-    spinnerContainer.innerHTML = `
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
-        <div class="geometric-spinner" style="
-          width: 48px;
-          height: 48px;
-          position: relative;
-        ">
-          <div style="
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border: 4px solid transparent;
-            border-top-color: #007AFF;
-            border-right-color: #5AC8FA;
-            border-radius: 50%;
-            animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-          "></div>
-          <div style="
-            position: absolute;
-            width: 70%;
-            height: 70%;
-            top: 15%;
-            left: 15%;
-            border: 4px solid transparent;
-            border-bottom-color: #667eea;
-            border-left-color: #764ba2;
-            border-radius: 50%;
-            animation: spin-reverse 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-          "></div>
-        </div>
-        <div>
-          <div style="font-size: 13px; color: #1d1d1f; font-weight: 500; margin-bottom: 4px;">
-            Téléchargement en cours
+    // Déterminer l'état à afficher
+    let displayState = '';
+    let displaySong = null;
+    let bgColor = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    
+    if (completedSong && !status.in_progress && queueCount === 0) {
+      // Terminé - afficher 3 secondes puis disparaître
+      displayState = '✓ Terminé';
+      displaySong = completedSong;
+      bgColor = 'linear-gradient(135deg, #34C759 0%, #30D158 100%)';
+      queueDisplay.style.background = bgColor;
+      
+      setTimeout(() => {
+        if (queueDisplay && !status.in_progress && status.queue_size === 0) {
+          queueDisplay.style.opacity = '0';
+          queueDisplay.style.transform = 'translateY(-10px)';
+          setTimeout(() => queueDisplay.remove(), 300);
+        }
+      }, 3000);
+    } else if (status.in_progress) {
+      displayState = '🎵 En cours';
+      displaySong = currentSong;
+      queueDisplay.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    } else if (queueCount > 0) {
+      displayState = '⏸️ En attente';
+      queueDisplay.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    }
+    
+    queueDisplay.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="flex: 1;">
+          <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">
+            ${displayState}
           </div>
-          <div style="font-size: 12px; color: #86868b;">
-            Veuillez patienter...
-          </div>
+          ${displaySong ? `
+            <div style="font-size: 11px; opacity: 0.9;">
+              ${displaySong.artist} - ${displaySong.title}
+            </div>
+          ` : ''}
+          ${queueCount > 0 ? `
+            <div style="font-size: 11px; opacity: 0.8; margin-top: 4px;">
+              📋 ${queueCount} en attente
+            </div>
+          ` : ''}
         </div>
+        ${status.in_progress ? `
+          <button id="cancel-download-btn" style="
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+          ">
+            ❌ Annuler
+          </button>
+        ` : ''}
       </div>
     `;
     
-    messagesContainer.appendChild(spinnerContainer);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    // Ajouter l'événement au bouton d'annulation
+    if (status.in_progress) {
+      const cancelBtn = document.getElementById('cancel-download-btn');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', async () => {
+          try {
+            await chrome.runtime.sendMessage({ action: 'cancel_download' });
+            addChatMessage('<strong>🛑</strong> Téléchargement annulé', 'warning');
+          } catch (error) {
+            log('❌', 'Cancel error:', error);
+          }
+        });
+        
+        cancelBtn.addEventListener('mouseenter', () => {
+          cancelBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+          cancelBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+      }
+    }
+  } else if (queueDisplay) {
+    // Supprimer l'affichage si la queue est vide
+    queueDisplay.remove();
   }
 }
 
-// Gérer le succès
-function handleSuccess(result) {
-  const messagesContainer = document.getElementById('grabsong-messages');
-  
-  // Supprimer le spinner
-  const spinnerContainer = document.getElementById('spinner-container');
-  if (spinnerContainer) {
-    // Ajouter une animation de fade out
-    spinnerContainer.style.opacity = '0';
-    spinnerContainer.style.transform = 'scale(0.9)';
-    spinnerContainer.style.transition = 'all 0.3s ease-out';
-    
-    setTimeout(() => {
-      spinnerContainer.remove();
-      showSuccessMessage(result, messagesContainer);
-    }, 300);
-  } else {
-    showSuccessMessage(result, messagesContainer);
-  }
-}
-
-function showSuccessMessage(result, messagesContainer) {
-  const successDiv = document.createElement('div');
-  successDiv.className = 'grabsong-message success';
-  successDiv.style.cssText = `
-    background: white;
-    border-radius: 16px;
-    padding: 28px 20px;
-    text-align: center;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  `;
-  
-  successDiv.innerHTML = `
-    <div style="width: 56px; height: 56px; margin: 0 auto 16px; background: #34C759; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px;">
-      ✓
-    </div>
-    <strong style="color: #1d1d1f; font-size: 17px; font-weight: 600; letter-spacing: -0.3px; display: block; margin-bottom: 8px;">
-      Téléchargement terminé
-    </strong>
-    <p style="margin: 0 0 6px 0; color: #86868b; font-size: 13px; line-height: 1.4;">
-      📁 ${result.file_path}
-    </p>
-    <p style="margin: 0 0 20px 0; font-size: 12px; color: #86868b;">
-      Organisé automatiquement
-    </p>
-    <button id="download-again-btn" style="
-      padding: 12px 24px;
-      background: #007AFF;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-      letter-spacing: -0.2px;
-    ">
-      Télécharger une autre chanson
-    </button>
-  `;
-  
-  messagesContainer.appendChild(successDiv);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  
-  // Ajouter l'événement au bouton
-  document.getElementById('download-again-btn').addEventListener('click', () => {
-    // Vider les messages
-    messagesContainer.innerHTML = '<div style="padding: 10px; text-align: center; color: #999; font-size: 12px;">Prêt à télécharger !</div>';
-    
-    // Relancer le téléchargement
-    performDownload();
-  });
-  
-  // Effet hover subtil
-  const btn = document.getElementById('download-again-btn');
-  btn.addEventListener('mouseenter', () => {
-    btn.style.transform = 'scale(1.02)';
-    btn.style.boxShadow = '0 6px 16px rgba(0, 122, 255, 0.4)';
-  });
-  btn.addEventListener('mouseleave', () => {
-    btn.style.transform = 'scale(1)';
-    btn.style.boxShadow = '0 4px 12px rgba(0, 122, 255, 0.3)';
-  });
-  
-  log('✅', 'Download completed:', result);
-}
-
-// Gérer l'erreur
-function handleError(error) {
-  addChatMessage(
-    `<div style="background: #ffebee; border: 2px solid #f44336; border-radius: 10px; padding: 15px; text-align: center;">
-      <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
-      <strong style="color: #c62828; font-size: 16px;">Erreur</strong>
-      <p style="margin: 10px 0; color: #666; font-size: 14px;">
-        ${error.error}
-      </p>
-    </div>`,
-    'error'
-  );
-  
-  log('❌', 'Download error:', error);
-}
+// Ces fonctions ne sont plus utilisées avec le nouveau système de liste
 
 // ============================================
 // INITIALISATION

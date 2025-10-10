@@ -28,6 +28,7 @@ from pathlib import Path
 from datetime import datetime
 import threading
 import time
+import queue
 
 # Import des modules
 from downloader import YouTubeDownloader
@@ -56,17 +57,22 @@ print(f"📁 Music: {MUSIC_DIR}")
 downloader = YouTubeDownloader(TEMP_DIR, MUSIC_DIR)
 organizer = MusicOrganizer(MUSIC_DIR)
 
+# Système de queue
+MAX_QUEUE_SIZE = 10
+download_queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
+queue_lock = threading.Lock()
+cancel_flag = threading.Event()
+
 # État global
 download_status = {
     'in_progress': False,
     'current_download': None,
     'last_completed': None,
     'last_error': None,
-    'progress': None
+    'progress': None,
+    'queue_size': 0,
+    'queue_position': 0
 }
-
-# Lock pour éviter les téléchargements simultanés
-download_lock = threading.Lock()
 
 # ============================================
 # ROUTES
@@ -85,19 +91,21 @@ def ping():
 @app.route('/status', methods=['GET'])
 def get_status():
     """Retourne le statut du téléchargement en cours"""
-    status = download_status.copy()
-    
-    # Ajouter la progression si un téléchargement est en cours
-    if status['in_progress']:
-        status['progress'] = downloader.get_progress()
-    
-    return jsonify(status)
+    with queue_lock:
+        status = download_status.copy()
+        status['queue_size'] = download_queue.qsize()
+        
+        # Ajouter la progression si un téléchargement est en cours
+        if status['in_progress']:
+            status['progress'] = downloader.get_progress()
+        
+        return jsonify(status)
 
 
 @app.route('/download', methods=['POST'])
 def download():
     """
-    Lance un téléchargement
+    Ajoute un téléchargement à la queue
     
     Body:
     {
@@ -108,13 +116,6 @@ def download():
         "year": "2024"
     }
     """
-    # Vérifier si un téléchargement est déjà en cours
-    if download_lock.locked():
-        return jsonify({
-            'success': False,
-            'error': 'Un téléchargement est déjà en cours'
-        }), 409
-    
     try:
         data = request.get_json()
         
@@ -125,6 +126,13 @@ def download():
                 'error': 'URL manquante'
             }), 400
         
+        # Vérifier si la queue est pleine
+        if download_queue.full():
+            return jsonify({
+                'success': False,
+                'error': f'Queue pleine (max {MAX_QUEUE_SIZE} téléchargements)'
+            }), 429
+        
         url = data['url']
         metadata = {
             'artist': data.get('artist', 'Unknown Artist'),
@@ -133,8 +141,17 @@ def download():
             'year': data.get('year', '')
         }
         
+        # Ajouter à la queue
+        download_queue.put({
+            'url': url,
+            'metadata': metadata,
+            'added_at': datetime.now().isoformat()
+        })
+        
+        queue_size = download_queue.qsize()
+        
         print(f"\n{'='*60}")
-        print(f"🎵 NOUVELLE REQUÊTE DE TÉLÉCHARGEMENT")
+        print(f"➕ AJOUTÉ À LA QUEUE (Position {queue_size}/{MAX_QUEUE_SIZE})")
         print(f"{'='*60}")
         print(f"URL: {url}")
         print(f"Artiste: {metadata['artist']}")
@@ -143,17 +160,38 @@ def download():
         print(f"Année: {metadata['year']}")
         print(f"{'='*60}\n")
         
-        # Lancer le téléchargement dans un thread séparé
-        download_thread = threading.Thread(
-            target=process_download,
-            args=(url, metadata)
-        )
-        download_thread.start()
+        return jsonify({
+            'success': True,
+            'message': 'Ajouté à la queue',
+            'queue_position': queue_size,
+            'queue_size': queue_size,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"❌ Erreur: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/cancel', methods=['POST'])
+def cancel_download():
+    """Annule le téléchargement en cours"""
+    try:
+        if not download_status['in_progress']:
+            return jsonify({
+                'success': False,
+                'error': 'Aucun téléchargement en cours'
+            }), 400
+        
+        print("\n🛑 ANNULATION DU TÉLÉCHARGEMENT EN COURS...")
+        cancel_flag.set()
         
         return jsonify({
             'success': True,
-            'message': 'Téléchargement démarré',
-            'timestamp': datetime.now().isoformat()
+            'message': 'Téléchargement annulé'
         })
         
     except Exception as e:
@@ -210,73 +248,116 @@ def get_stats():
 # FONCTIONS
 # ============================================
 
-def process_download(url, metadata):
+def queue_worker():
     """
-    Traite un téléchargement (télécharge + organise)
-    Exécuté dans un thread séparé
+    Worker qui traite la queue de téléchargements
+    Tourne en boucle infinie dans un thread séparé
     """
-    with download_lock:
+    print("🔄 Queue worker démarré\n")
+    
+    while True:
         try:
+            # Attendre un élément dans la queue (bloquant)
+            item = download_queue.get()
+            
+            if item is None:  # Signal d'arrêt
+                break
+            
+            url = item['url']
+            metadata = item['metadata']
+            
+            # Réinitialiser le flag d'annulation
+            cancel_flag.clear()
+            
             # Marquer comme en cours
-            download_status['in_progress'] = True
-            download_status['current_download'] = {
-                'url': url,
-                'metadata': metadata,
-                'started_at': datetime.now().isoformat()
-            }
-            download_status['last_error'] = None
-            
-            # Étape 1: Télécharger
-            print("📥 Étape 1/2: Téléchargement...")
-            download_result = downloader.download(url, metadata)
-            
-            if not download_result['success']:
-                raise Exception(download_result.get('error', 'Erreur inconnue'))
-            
-            file_path = download_result['file_path']
-            print(f"✅ Téléchargement terminé: {file_path}")
-            
-            # Étape 2: Organiser
-            print("\n📁 Étape 2/2: Organisation...")
-            organize_result = organizer.organize(file_path, metadata)
-            
-            if not organize_result['success']:
-                raise Exception(organize_result.get('error', 'Erreur inconnue'))
-            
-            final_path = organize_result['final_path']
-            print(f"✅ Organisation terminée: {final_path}")
-            
-            # Succès
-            download_status['in_progress'] = False
-            download_status['current_download'] = None
-            download_status['last_completed'] = {
-                'success': True,
-                'file_path': final_path,
-                'metadata': metadata,
-                'timestamp': datetime.now().isoformat()
-            }
+            with queue_lock:
+                download_status['in_progress'] = True
+                download_status['current_download'] = {
+                    'url': url,
+                    'metadata': metadata,
+                    'started_at': datetime.now().isoformat()
+                }
+                download_status['last_error'] = None
             
             print(f"\n{'='*60}")
-            print(f"✅ TÉLÉCHARGEMENT TERMINÉ AVEC SUCCÈS")
+            print(f"🎵 DÉMARRAGE DU TÉLÉCHARGEMENT")
             print(f"{'='*60}")
-            print(f"Fichier: {final_path}")
+            print(f"Queue restante: {download_queue.qsize()}")
+            print(f"Artiste: {metadata['artist']}")
+            print(f"Album: {metadata['album']}")
+            print(f"Titre: {metadata['title']}")
             print(f"{'='*60}\n")
+            
+            try:
+                # Étape 1: Télécharger
+                print("📥 Étape 1/2: Téléchargement...")
+                download_result = downloader.download(url, metadata)
+                
+                # Vérifier annulation
+                if cancel_flag.is_set():
+                    raise Exception("Téléchargement annulé par l'utilisateur")
+                
+                if not download_result['success']:
+                    raise Exception(download_result.get('error', 'Erreur inconnue'))
+                
+                file_path = download_result['file_path']
+                print(f"✅ Téléchargement terminé: {file_path}")
+                
+                # Vérifier annulation
+                if cancel_flag.is_set():
+                    raise Exception("Téléchargement annulé par l'utilisateur")
+                
+                # Étape 2: Organiser
+                print("\n📁 Étape 2/2: Organisation...")
+                organize_result = organizer.organize(file_path, metadata)
+                
+                if not organize_result['success']:
+                    raise Exception(organize_result.get('error', 'Erreur inconnue'))
+                
+                final_path = organize_result['final_path']
+                print(f"✅ Organisation terminée: {final_path}")
+                
+                # Succès
+                with queue_lock:
+                    download_status['in_progress'] = False
+                    download_status['current_download'] = None
+                    download_status['last_completed'] = {
+                        'success': True,
+                        'file_path': final_path,
+                        'metadata': metadata,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                
+                print(f"\n{'='*60}")
+                print(f"✅ TÉLÉCHARGEMENT TERMINÉ AVEC SUCCÈS")
+                print(f"{'='*60}")
+                print(f"Fichier: {final_path}")
+                print(f"Queue restante: {download_queue.qsize()}")
+                print(f"{'='*60}\n")
+                
+            except Exception as e:
+                # Erreur
+                print(f"\n{'='*60}")
+                print(f"❌ ERREUR LORS DU TÉLÉCHARGEMENT")
+                print(f"{'='*60}")
+                print(f"Erreur: {str(e)}")
+                print(f"{'='*60}\n")
+                
+                with queue_lock:
+                    download_status['in_progress'] = False
+                    download_status['current_download'] = None
+                    download_status['last_error'] = {
+                        'error': str(e),
+                        'metadata': metadata,
+                        'timestamp': datetime.now().isoformat()
+                    }
+            
+            # Marquer la tâche comme terminée
+            download_queue.task_done()
             
         except Exception as e:
-            # Erreur
-            print(f"\n{'='*60}")
-            print(f"❌ ERREUR LORS DU TÉLÉCHARGEMENT")
-            print(f"{'='*60}")
-            print(f"Erreur: {str(e)}")
-            print(f"{'='*60}\n")
-            
-            download_status['in_progress'] = False
-            download_status['current_download'] = None
-            download_status['last_error'] = {
-                'error': str(e),
-                'metadata': metadata,
-                'timestamp': datetime.now().isoformat()
-            }
+            print(f"❌ Erreur dans le queue worker: {str(e)}")
+            time.sleep(1)
 
 
 # ============================================
@@ -285,20 +366,27 @@ def process_download(url, metadata):
 
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("🎵 GrabSong V3 - Serveur Python")
+    print("🎵 SongSurf - Serveur Python avec Queue")
     print("="*60)
     print(f"📁 Dossier temporaire: {TEMP_DIR}")
     print(f"📁 Bibliothèque musicale: {MUSIC_DIR}")
+    print(f"📊 Taille max de la queue: {MAX_QUEUE_SIZE}")
     print("="*60)
     print("🚀 Serveur démarré sur http://localhost:5000")
     print("="*60)
     print("\n💡 Endpoints disponibles:")
     print("   GET  /ping           → Test de connexion")
-    print("   GET  /status         → Statut du téléchargement")
-    print("   POST /download       → Lancer un téléchargement")
+    print("   GET  /status         → Statut du téléchargement + queue")
+    print("   POST /download       → Ajouter à la queue")
+    print("   POST /cancel         → Annuler le téléchargement en cours")
     print("   POST /cleanup        → Nettoyer le dossier temp/")
     print("   GET  /stats          → Statistiques de la bibliothèque")
     print("\n" + "="*60 + "\n")
+    
+    # Démarrer le queue worker dans un thread séparé
+    worker_thread = threading.Thread(target=queue_worker, daemon=True)
+    worker_thread.start()
+    print("✅ Queue worker démarré\n")
     
     # Lancer le serveur
     app.run(

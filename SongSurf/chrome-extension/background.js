@@ -39,6 +39,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
+  if (message.action === 'cancel_download') {
+    cancelDownload()
+      .then(result => sendResponse(result))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+  
 });
 
 // ============================================
@@ -115,6 +122,30 @@ async function cleanup() {
     
   } catch (error) {
     console.error('❌ Erreur lors du nettoyage:', error);
+    throw error;
+  }
+}
+
+/**
+ * Annule le téléchargement en cours
+ */
+async function cancelDownload() {
+  try {
+    const response = await fetch(`${PYTHON_SERVER}/cancel`, {
+      method: 'POST'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur serveur: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ Téléchargement annulé:', result);
+    
+    return result;
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'annulation:', error);
     throw error;
   }
 }

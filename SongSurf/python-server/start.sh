@@ -47,4 +47,14 @@ echo ""
 echo -e "${CYAN}▶ Démarrage du serveur...${NC}"
 echo ""
 
-python app.py
+# Utiliser python.exe sur Windows
+if command -v python.exe &> /dev/null; then
+    python.exe app.py
+elif command -v python3 &> /dev/null; then
+    python3 app.py
+elif command -v python &> /dev/null; then
+    python app.py
+else
+    echo -e "${RED}❌ Python n'est pas installé ou n'est pas dans le PATH${NC}"
+    exit 1
+fi
