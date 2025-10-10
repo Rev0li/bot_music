@@ -1,161 +1,108 @@
-# 🎵 Music Organizer & Chrome Extension
+# 🎵 GrabSong - YouTube Music Downloader
 
-Complete automated solution for downloading and organizing music from YouTube Music.
+**Version 3.0** - Téléchargement direct et organisation automatique de musique depuis YouTube Music.
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg)](https://developer.chrome.com/docs/extensions/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-red.svg)](https://github.com/yt-dlp/yt-dlp)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
 ---
 
-## 🎯 What This Does
+## ✨ Nouveautés V3
 
-**Complete automation from YouTube Music to organized library:**
-
-1. **Chrome Extension** → Automates Y2Mate downloading
-2. **Python Organizer** → Detects downloads and organizes files
-3. **Result** → Perfect music library: `Artist/Album/Title.mp3`
+- ✅ **Téléchargement direct** via yt-dlp (plus besoin de Y2Mate)
+- ✅ **3x plus rapide** (~10s au lieu de ~30s)
+- ✅ **Plus fiable** (pas de dépendance à un site externe)
+- ✅ **Pochette intégrée** automatiquement dans le MP3
+- ✅ **Support Docker** pour un déploiement facile
+- ✅ **Progression en temps réel** (pourcentage, vitesse, ETA)
 
 ---
 
-## ⚡ Quick Start
+## 🎯 Fonctionnalités
 
-### 1. Chrome Extension
+**Workflow complet automatisé:**
+
+1. **Extension Chrome** → Extrait les métadonnées depuis YouTube Music
+2. **Serveur Python** → Télécharge via yt-dlp en MP3 haute qualité
+3. **Organisation** → Classe automatiquement: `Artist/Album/Title.mp3`
+4. **Tags ID3** → Artiste, Album, Titre, Année + Pochette intégrée
+
+---
+
+## ⚡ Installation Rapide
+
+### Linux/macOS
 ```bash
-# Load chrome-extension/ folder as unpacked extension
-# Go to YouTube Music → Click "🎯 Auto Share V2"
+cd V3
+bash install.sh
+bash start.sh
 ```
 
-### 2. Python Organizer
-```bash
-cd python-organizer
-pip install -r requirements.txt
-python app.py
-```
 
-**That's it! Download a song and watch the magic happen! ✨**
-
----
-
-## 📁 Project Structure
+## 📁 Structure du Projet
 
 ```
-Music-Organizer/
-├── chrome-extension/               # 🌐 Chrome Extension V2
-│   ├── manifest.json
-│   ├── content.js
-│   ├── background.js
-│   └── modules/
-│
-├── python-organizer/               # 🐍 Python Music Organizer
-│   ├── app.py                      # Main application
-│   ├── music_organizer/            # Modular package
-│   └── docs/                       # Complete documentation
-│
-└── README.md                       # This file
+bot/
+└── V3/                          # Version stable actuelle
+    ├── chrome-extension/        # Extension Chrome
+    ├── python-server/           # Serveur Python (Flask + yt-dlp)
+    ├── music/                   # Bibliothèque musicale organisée
+    ├── install.sh               # Installation automatique
+    ├── start.sh                 # Lancement rapide
+    ├── Dockerfile               # Image Docker
+    └── README.md                # Documentation complète
 ```
 
 ---
 
-## 🚀 Features
+## 📖 Documentation
 
-### Chrome Extension
-- ✅ **Background Processing** - Y2Mate runs in background
-- ✅ **Auto MP3 Selection** - Smart format detection
-- ✅ **Structured Filenames** - `art=Artist N=Title.mp3`
-- ✅ **Clipboard Integration** - Ready for Python organizer
-
-### Python Organizer
-- ✅ **Download Detection** - Monitors "Save As" dialogs
-- ✅ **Auto-Paste** - Pastes filenames automatically (Ctrl+V)
-- ✅ **Auto-Organization** - Creates `Artist/Album/Title.mp3`
-- ✅ **ID3 Tags** - Updates MP3 metadata
-- ✅ **GUI Interface** - User-friendly with real-time logs
+- **[QUICK_START.md](V3/QUICK_START.md)** - Démarrage en 2 minutes
+- **[CHANGELOG.md](V3/CHANGELOG.md)** - Historique des changements
 
 ---
 
-## 🔄 Complete Workflow
+## 🎉 Résultat
 
+**Avant:**
 ```
-YouTube Music → Auto Share V2 → Y2Mate (background) → Download
-    ↓
-"Save As" dialog → Auto-paste filename → Save to Music/itunes
-    ↓
-Python Organizer → Scan folder → Organize into Artist/Album/
-    ↓
-Perfect music library! 🎉
+Téléchargements/
+└── Måneskin - This Is The Life.mp3
+```
+
+**Après:**
+```
+music/
+└── Måneskin/
+    └── Rush!/
+        └── This Is The Life.mp3
+            ✅ Tags ID3 (Artiste, Album, Titre, Année)
+            ✅ Pochette intégrée
 ```
 
 ---
 
-## 📚 Documentation
+## 🛠️ Technologies
 
-### **Chrome Extension**
-- [`chrome-extension/README.md`](chrome-extension/README.md) - Setup and usage guide
-
-### **Python Organizer**
-- [`python-organizer/docs/00_INDEX.md`](python-organizer/docs/00_INDEX.md) - Complete documentation
-- [`python-organizer/docs/01_QUICK_START.md`](python-organizer/docs/01_QUICK_START.md) - 5-minute setup
-- [`python-organizer/docs/02_INSTALLATION.md`](python-organizer/docs/02_INSTALLATION.md) - Detailed installation
-- [`python-organizer/docs/03_USER_GUIDE.md`](python-organizer/docs/03_USER_GUIDE.md) - How to use
+- **Python 3.8+** - Serveur backend
+- **Flask** - API REST
+- **yt-dlp** - Téléchargement YouTube
+- **Mutagen** - Tags ID3
+- **Chrome Extension** - Interface utilisateur
+- **Docker** - Conteneurisation
 
 ---
 
-## 🎵 Example Result
+## 📝 Licence
 
-**Before:**
-```
-Downloads/
-└── art=Drake alb=Views N=OneDance Y=2016.mp3
-```
-
-**After:**
-```
-Music/
-└── Drake/
-    └── Views/
-        └── OneDance.mp3 (with ID3 tags)
-```
+MIT License - Voir [LICENSE](LICENSE)
 
 ---
 
-## 🛠️ Tech Stack
+## 🙏 Crédits
 
-- **Chrome Extension:** JavaScript ES6+, Chrome APIs
-- **Python Organizer:** Python 3.8+, Tkinter, mutagen, pyautogui
-
----
-
-## 🐛 Troubleshooting
-
-### Chrome Extension
-- **Button not visible:** Refresh YouTube Music page
-- **Y2Mate not opening:** Check popup blockers
-- **Download not starting:** Try different song
-
-### Python Organizer
-- **Scanner not detecting:** `pip install pywin32`
-- **Auto-paste not working:** `pip install pyautogui pyperclip`
-- **No songs found:** Check filename format
-
----
-
-## ✅ Success Indicators
-
-You know it's working when:
-- ✅ Chrome extension shows "🎯 Auto Share V2" button
-- ✅ Y2Mate opens in background and converts automatically
-- ✅ Python monitor detects "Save As" dialog
-- ✅ Filename is pasted automatically
-- ✅ Files are organized into Artist/Album structure
-- ✅ MP3 tags are updated correctly
-
----
-
-## 🎉 Result
-
-**A completely automated music downloading and organizing system!**
-
-From YouTube Music to perfectly organized library in just a few clicks.
-
-**Happy music organizing! 🎵**
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Téléchargement YouTube
+- [FFmpeg](https://ffmpeg.org/) - Conversion audio
+- [Mutagen](https://github.com/quodlibet/mutagen) - Tags ID3

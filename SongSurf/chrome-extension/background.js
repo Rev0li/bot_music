@@ -39,12 +39,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
-  if (message.action === 'browse_folder') {
-    browseFolder()
-      .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
-  }
 });
 
 // ============================================
@@ -121,30 +115,6 @@ async function cleanup() {
     
   } catch (error) {
     console.error('❌ Erreur lors du nettoyage:', error);
-    throw error;
-  }
-}
-
-/**
- * Ouvre un sélecteur de dossier via le serveur Python
- */
-async function browseFolder() {
-  try {
-    const response = await fetch(`${PYTHON_SERVER}/browse_folder`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Erreur serveur: ${response.status}`);
-    }
-    
-    const result = await response.json();
-    console.log('📂 Dossier sélectionné:', result);
-    
-    return result;
-    
-  } catch (error) {
-    console.error('❌ Erreur lors de la sélection du dossier:', error);
     throw error;
   }
 }

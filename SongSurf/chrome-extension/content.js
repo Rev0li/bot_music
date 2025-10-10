@@ -25,7 +25,7 @@ const CONFIG = {
   delays: {
     menuOpen: 1000,
     shareDialog: 1000,
-    copyAction: 500,
+    copyAction: 1500,  // Augmenté pour laisser le temps au clipboard
     statusPoll: 1000, // Polling toutes les secondes
   },
   
@@ -91,7 +91,7 @@ async function readFromClipboard() {
 let settings = {
   position: 'bottom-right',
   opacity: 0.95,
-  customFolder: '' // Dossier personnalisé pour sauvegarder la musique
+  autoAccept: false
 };
 
 let statusPollingInterval = null;
@@ -103,6 +103,15 @@ function loadSettings() {
       settings = { ...settings, ...result.grabsong_settings };
     }
     applySettings();
+    
+    // Mettre à jour le toggle si on est dans les settings
+    const autoAcceptToggle = document.getElementById('auto-accept-toggle');
+    if (autoAcceptToggle) {
+      autoAcceptToggle.checked = settings.autoAccept || false;
+      if (window.updateToggleStyle) {
+        window.updateToggleStyle();
+      }
+    }
   });
 }
 
@@ -189,10 +198,10 @@ function createChatContainer() {
       <div style="background: white; padding: 12px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
         <strong style="color: #1d1d1f; font-size: 13px; font-weight: 600;">📍 Position</strong>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
-          <button class="position-btn" data-position="top-left" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↖ Haut G.</button>
-          <button class="position-btn" data-position="top-right" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↗ Haut D.</button>
-          <button class="position-btn" data-position="bottom-left" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↙ Bas G.</button>
-          <button class="position-btn" data-position="bottom-right" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↘ Bas D.</button>
+          <button class="position-btn" data-position="top-left" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);">↖ Haut G.</button>
+          <button class="position-btn" data-position="top-right" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);">↗ Haut D.</button>
+          <button class="position-btn" data-position="bottom-left" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);">↙ Bas G.</button>
+          <button class="position-btn" data-position="bottom-right" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);">↘ Bas D.</button>
         </div>
       </div>
       
@@ -206,50 +215,38 @@ function createChatContainer() {
         </div>
       </div>
       
-      <div style="background: white; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden;">
-        <strong style="color: #1d1d1f; font-size: 13px; font-weight: 600;">📁 Dossier de sauvegarde</strong>
-        <div style="margin-top: 10px;">
-          <div style="position: relative;">
-            <input type="text" id="custom-folder-input" placeholder="/mnt/c/Users/Molim/Music" 
-                   style="width: 100%; padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; font-size: 12px; color: #1d1d1f; background: #f5f5f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            <div id="custom-folder-display" style="display: none; width: 100%; padding: 10px; border: 1px solid rgba(52, 199, 89, 0.3); border-radius: 8px; font-size: 12px; color: #1d1d1f; background: rgba(52, 199, 89, 0.05); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            </div>
+      <div style="background: white; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <strong style="color: #1d1d1f; font-size: 13px; font-weight: 600;">⚡ Accepter auto</strong>
+            <p style="margin: 5px 0 0 0; font-size: 11px; color: #86868b;">Valider automatiquement les métadonnées</p>
           </div>
-          <div style="font-size: 11px; color: #86868b; margin-top: 6px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis;">
-            ⚠️ Chemin absolu WSL (ex: /mnt/c/Users/...)<br>
-            Laissez vide pour music/ par défaut
-          </div>
-          <div style="margin-top: 10px; display: flex; gap: 8px;">
-            <button id="validate-folder-btn" style="
-              flex: 1;
-              padding: 10px;
-              background: #34C759;
-              color: white;
-              border: none;
-              border-radius: 8px;
-              font-size: 13px;
-              font-weight: 500;
+          <label style="position: relative; display: inline-block; width: 44px; height: 24px;">
+            <input type="checkbox" id="auto-accept-toggle" style="opacity: 0; width: 0; height: 0;">
+            <span id="toggle-slider" style="
+              position: absolute;
               cursor: pointer;
-              transition: all 2.4s cubic-bezier(0.16, 1, 0.3, 1);
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background-color: #ccc;
+              transition: 0.3s;
+              border-radius: 24px;
             ">
-              ✓ Valider
-            </button>
-            <button id="modify-folder-btn" style="
-              flex: 1;
-              padding: 10px;
-              background: rgba(0,0,0,0.04);
-              color: #1d1d1f;
-              border: none;
-              border-radius: 8px;
-              font-size: 13px;
-              font-weight: 500;
-              cursor: pointer;
-              transition: all 2.4s cubic-bezier(0.16, 1, 0.3, 1);
-              display: none;
-            ">
-              ✏️ Modifier
-            </button>
-          </div>
+              <span id="toggle-dot" style="
+                position: absolute;
+                content: '';
+                height: 18px;
+                width: 18px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                transition: 0.3s;
+                border-radius: 50%;
+              "></span>
+            </span>
+          </label>
         </div>
       </div>
     </div>
@@ -287,93 +284,34 @@ function createChatContainer() {
   
   document.getElementById('opacity-slider').addEventListener('change', saveSettings);
   
-  // Custom folder - Bouton Valider
-  const validateBtn = document.getElementById('validate-folder-btn');
-  validateBtn.addEventListener('click', () => {
-    const input = document.getElementById('custom-folder-input');
-    const display = document.getElementById('custom-folder-display');
-    const modifyBtn = document.getElementById('modify-folder-btn');
-    
-    const folderPath = input.value.trim();
-    settings.customFolder = folderPath;
+  // Toggle auto-accept
+  const autoAcceptToggle = document.getElementById('auto-accept-toggle');
+  const toggleSlider = document.getElementById('toggle-slider');
+  const toggleDot = document.getElementById('toggle-dot');
+  
+  autoAcceptToggle.addEventListener('change', (e) => {
+    settings.autoAccept = e.target.checked;
     saveSettings();
-    
-    // Afficher le chemin validé
-    display.textContent = folderPath || 'music/ (par défaut)';
-    display.style.display = 'block';
-    input.style.display = 'none';
-    
-    // Inverser les boutons
-    validateBtn.style.display = 'none';
-    modifyBtn.style.display = 'block';
-    
-    log('✅', 'Custom folder locked:', settings.customFolder);
+    updateToggleStyle();
   });
   
-  // Effet hover - Valider
-  validateBtn.addEventListener('mouseenter', () => {
-    validateBtn.style.background = '#30B350';
-    validateBtn.style.transform = 'scale(1.02)';
-  });
-  validateBtn.addEventListener('mouseleave', () => {
-    validateBtn.style.background = '#34C759';
-    validateBtn.style.transform = 'scale(1)';
-  });
+  function updateToggleStyle() {
+    if (settings.autoAccept) {
+      toggleSlider.style.backgroundColor = '#34C759';
+      toggleDot.style.transform = 'translateX(20px)';
+    } else {
+      toggleSlider.style.backgroundColor = '#ccc';
+      toggleDot.style.transform = 'translateX(0)';
+    }
+  }
   
-  // Custom folder - Bouton Modifier
-  const modifyBtn = document.getElementById('modify-folder-btn');
-  modifyBtn.addEventListener('click', () => {
-    const input = document.getElementById('custom-folder-input');
-    const display = document.getElementById('custom-folder-display');
-    
-    // Afficher l'input pour modification
-    input.style.display = 'block';
-    display.style.display = 'none';
-    
-    // Inverser les boutons
-    validateBtn.style.display = 'block';
-    modifyBtn.style.display = 'none';
-    
-    // Focus sur l'input
-    input.focus();
-    
-    log('✏️', 'Custom folder unlocked for editing');
-  });
-  
-  // Effet hover - Modifier
-  modifyBtn.addEventListener('mouseenter', () => {
-    modifyBtn.style.background = 'rgba(0,0,0,0.08)';
-    modifyBtn.style.transform = 'scale(1.02)';
-  });
-  modifyBtn.addEventListener('mouseleave', () => {
-    modifyBtn.style.background = 'rgba(0,0,0,0.04)';
-    modifyBtn.style.transform = 'scale(1)';
-  });
+  // Exposer la fonction pour l'utiliser ailleurs
+  window.updateToggleStyle = updateToggleStyle;
   
   loadSettings();
   updatePositionButtons();
-  updateCustomFolderInput();
   
   log('✅', 'Chat container created');
-}
-
-// Mettre à jour le champ custom folder
-function updateCustomFolderInput() {
-  const input = document.getElementById('custom-folder-input');
-  const display = document.getElementById('custom-folder-display');
-  const validateBtn = document.getElementById('validate-folder-btn');
-  const modifyBtn = document.getElementById('modify-folder-btn');
-  
-  if (input && settings.customFolder) {
-    input.value = settings.customFolder;
-    
-    // Si un chemin est déjà sauvegardé, l'afficher en mode "validé"
-    display.textContent = settings.customFolder;
-    display.style.display = 'block';
-    input.style.display = 'none';
-    validateBtn.style.display = 'none';
-    modifyBtn.style.display = 'block';
-  }
 }
 
 // Mettre à jour les boutons de position
@@ -546,20 +484,38 @@ style.textContent = `
     }
   }
   
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  @keyframes spin-reverse {
+    from {
+      transform: rotate(360deg);
+    }
+    to {
+      transform: rotate(0deg);
+    }
+  }
+  
   .grabsong-message {
-    animation: fadeIn 3.6s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
   
   #grabsong-edit-form {
-    animation: scaleIn 3.0s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
   
   button {
-    transition: all 2.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
   
   #grabsong-container {
-    transition: all 3.0s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 `;
 document.head.appendChild(style);
@@ -591,9 +547,58 @@ async function extractSongData() {
     const fullText = bylineElement.textContent.trim();
     const parts = fullText.split('•').map(part => part.trim());
     
-    if (parts[0]) songData.artist = parts[0];
-    if (parts[1]) songData.album = parts[1];
-    if (parts[2] && /^\d{4}$/.test(parts[2])) songData.year = parts[2];
+    // Détecter le mode album (contient "lectures", "vues", "J'aime", etc.)
+    const isAlbumMode = /lectures|vues|j'aime|views|likes/i.test(fullText);
+    
+    if (isAlbumMode) {
+      log('⚠️', '🎵 MODE ALBUM DÉTECTÉ');
+      songData.albumMode = true;
+      
+      // En mode album, extraire l'artiste (premier élément qui n'est pas un nombre)
+      for (let part of parts) {
+        if (!/lectures|vues|j'aime|views|likes|k |M /i.test(part)) {
+          songData.artist = part.trim();
+          log('🎤', 'Artist (album mode):', songData.artist);
+          break;
+        }
+      }
+      
+      // Chercher l'album et l'année dans le header de la page
+      const albumHeader = document.querySelector('ytmusic-responsive-header-renderer');
+      if (albumHeader) {
+        // Nom de l'album
+        const albumTitle = albumHeader.querySelector('h1 .title');
+        if (albumTitle) {
+          songData.album = albumTitle.textContent.trim();
+          log('💿', 'Album (from header):', songData.album);
+        }
+        
+        // Année (dans le subtitle: "Album • 2022")
+        const subtitle = albumHeader.querySelector('.subtitle');
+        if (subtitle) {
+          const subtitleText = subtitle.textContent.trim();
+          log('🔍', 'Subtitle text:', subtitleText);
+          
+          // Chercher une année (4 chiffres)
+          const yearMatch = subtitleText.match(/\b(19|20)\d{2}\b/);
+          if (yearMatch) {
+            songData.year = yearMatch[0];
+            log('📅', 'Year (from header):', songData.year);
+          }
+        }
+      }
+      
+      if (!songData.album || !songData.year) {
+        log('⚠️', 'Album ou année non trouvés dans le header');
+      }
+    } else {
+      // Mode normal (chanson individuelle)
+      songData.albumMode = false;
+      
+      if (parts[0]) songData.artist = parts[0];
+      if (parts[1]) songData.album = parts[1];
+      if (parts[2] && /^\d{4}$/.test(parts[2])) songData.year = parts[2];
+    }
   }
 
   // Récupérer l'URL
@@ -642,30 +647,52 @@ async function getShareLink() {
 
   await wait(CONFIG.delays.shareDialog);
 
-  // Étape 3: Cliquer sur "Copier"
-  const copyButton = Array.from(document.querySelectorAll('button')).find(btn => 
-    btn.textContent.includes('Copier') || btn.textContent.includes('Copy')
-  );
+  // Étape 3: Récupérer l'URL depuis le champ de texte du dialog
+  log('🔍', 'Looking for share URL input field...');
   
-  if (!copyButton) {
-    log('❌', 'Copy button not found');
-    return '';
+  // Chercher le champ input qui contient l'URL
+  const urlInput = document.querySelector('input[type="text"]');
+  
+  if (urlInput && urlInput.value && urlInput.value.includes('youtube.com')) {
+    const shareLink = urlInput.value;
+    log('✅', 'Share link obtained from input field:', shareLink);
+    
+    // Fermer le dialog
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    
+    log('🎵', 'Link will be sent to yt-dlp with noplaylist=true');
+    return shareLink;
   }
-
-  log('🖱️', 'Click 3/3: Copying link...');
-  copyButton.click();
-  await wait(CONFIG.delays.copyAction);
-
-  // Récupérer le lien depuis le clipboard
-  const shareLink = await readFromClipboard();
+  
+  // Fallback: essayer de trouver l'URL dans le DOM
+  log('🔍', 'Input field not found, trying alternative methods...');
+  
+  const shareContainer = document.querySelector('ytmusic-unified-share-panel-renderer');
+  if (shareContainer) {
+    const allInputs = shareContainer.querySelectorAll('input');
+    log('🔍', `Found ${allInputs.length} inputs in share panel`);
+    
+    for (const input of allInputs) {
+      log('🔍', `Input value: "${input.value}"`);
+      if (input.value && input.value.includes('youtube.com')) {
+        const shareLink = input.value;
+        log('✅', 'Share link found:', shareLink);
+        
+        // Fermer le dialog
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        
+        return shareLink;
+      }
+    }
+  }
+  
+  // Dernier recours: utiliser window.location
+  log('⚠️', 'Could not find share link, using page URL');
   
   // Fermer le dialog
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
   
-  log('✅', 'Share link obtained:', shareLink);
-  log('🎵', 'Link will be sent to yt-dlp with noplaylist=true');
-  
-  return shareLink;
+  return window.location.href;
 }
 
 // ============================================
@@ -696,6 +723,48 @@ async function performDownload() {
     }
     
     addChatMessage('<strong>✅</strong> Données extraites avec succès !', 'success');
+    
+    // Notification si mode album
+    if (songData.albumMode) {
+      addChatMessage(
+        `<div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 10px; padding: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">⚠️</span>
+            <div>
+              <strong style="color: #856404; font-size: 14px;">Mode Album Détecté</strong>
+              <p style="margin: 5px 0 0 0; font-size: 12px; color: #856404;">
+                Album et Année extraits depuis le header de la page
+              </p>
+            </div>
+          </div>
+        </div>`,
+        'warning'
+      );
+    }
+    
+    // Si auto-accept est activé, télécharger directement
+    if (settings.autoAccept) {
+      addChatMessage(
+        `<div style="background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 10px; padding: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">⚡</span>
+            <div>
+              <strong style="color: #2e7d32; font-size: 14px;">Acceptation automatique activée</strong>
+              <p style="margin: 5px 0 0 0; font-size: 12px; color: #2e7d32;">
+                🎤 ${songData.artist || 'N/A'} • 💿 ${songData.album || 'N/A'} • 🎵 ${songData.title || 'N/A'} • 📅 ${songData.year || 'N/A'}
+              </p>
+            </div>
+          </div>
+        </div>`,
+        'success'
+      );
+      
+      // Lancer directement le téléchargement
+      setTimeout(() => {
+        startDownload(songData);
+      }, 1000);
+      return;
+    }
     
     // Étape 2: Vérification
     addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">✏️ Étape 2/3 : Vérification</div>Vérifiez les informations', 'info');
@@ -835,11 +904,6 @@ async function startDownload(songData) {
     // Étape 3: Téléchargement
     addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">⬇️ Étape 3/3 : Téléchargement</div>Envoi au serveur Python...', 'info');
     
-    // Ajouter le custom folder si défini
-    if (settings.customFolder) {
-      songData.custom_folder = settings.customFolder;
-      log('📁', 'Using custom folder:', settings.customFolder);
-    }
     
     // Envoyer au serveur Python
     const response = await chrome.runtime.sendMessage({
@@ -901,72 +965,67 @@ function startStatusPolling() {
 
 // Mettre à jour la progression
 function updateProgress(progress) {
-  let progressBar = document.getElementById('progress-bar-container');
+  let spinnerContainer = document.getElementById('spinner-container');
   
-  // Créer la barre de progression si elle n'existe pas
-  if (!progressBar) {
+  // Créer le spinner si il n'existe pas
+  if (!spinnerContainer) {
     const messagesContainer = document.getElementById('grabsong-messages');
     
-    progressBar = document.createElement('div');
-    progressBar.id = 'progress-bar-container';
-    progressBar.className = 'grabsong-message info';
-    progressBar.style.cssText = `
+    spinnerContainer = document.createElement('div');
+    spinnerContainer.id = 'spinner-container';
+    spinnerContainer.className = 'grabsong-message info';
+    spinnerContainer.style.cssText = `
       background: white;
-      padding: 16px;
+      padding: 24px;
       margin-bottom: 10px;
       border-radius: 12px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      text-align: center;
     `;
     
-    progressBar.innerHTML = `
-      <div style="margin-bottom: 12px;">
-        <div style="font-size: 13px; color: #1d1d1f; font-weight: 500; margin-bottom: 4px;">
-          Téléchargement en cours
+    spinnerContainer.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+        <div class="geometric-spinner" style="
+          width: 48px;
+          height: 48px;
+          position: relative;
+        ">
+          <div style="
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 4px solid transparent;
+            border-top-color: #007AFF;
+            border-right-color: #5AC8FA;
+            border-radius: 50%;
+            animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+          "></div>
+          <div style="
+            position: absolute;
+            width: 70%;
+            height: 70%;
+            top: 15%;
+            left: 15%;
+            border: 4px solid transparent;
+            border-bottom-color: #667eea;
+            border-left-color: #764ba2;
+            border-radius: 50%;
+            animation: spin-reverse 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+          "></div>
         </div>
-        <div style="font-size: 12px; color: #86868b;">
-          Veuillez patienter...
+        <div>
+          <div style="font-size: 13px; color: #1d1d1f; font-weight: 500; margin-bottom: 4px;">
+            Téléchargement en cours
+          </div>
+          <div style="font-size: 12px; color: #86868b;">
+            Veuillez patienter...
+          </div>
         </div>
-      </div>
-      <div style="width: 100%; height: 6px; background: rgba(0, 122, 255, 0.1); border-radius: 10px; overflow: hidden;">
-        <div id="progress-bar-fill" style="
-          width: 0%;
-          height: 100%;
-          background: linear-gradient(90deg, #007AFF 0%, #5AC8FA 100%);
-          border-radius: 10px;
-          transition: width 0.3s ease-out;
-        "></div>
       </div>
     `;
     
-    messagesContainer.appendChild(progressBar);
+    messagesContainer.appendChild(spinnerContainer);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    
-    // Animation automatique sur 10 secondes avec variations aléatoires
-    let currentProgress = 0;
-    let targetProgress = 0;
-    
-    const interval = setInterval(() => {
-      // Ajouter une variation aléatoire (entre 0.3% et 1.5%)
-      const randomIncrement = Math.random() * 1.2 + 0.3;
-      targetProgress += randomIncrement;
-      
-      // Limiter à 95% jusqu'à la fin réelle
-      if (targetProgress >= 95) {
-        targetProgress = 95;
-        clearInterval(interval);
-      }
-      
-      // Interpolation douce vers la cible
-      currentProgress += (targetProgress - currentProgress) * 0.3;
-      
-      const fillBar = document.getElementById('progress-bar-fill');
-      if (fillBar) {
-        fillBar.style.width = currentProgress.toFixed(1) + '%';
-      }
-    }, 100); // Mise à jour toutes les 100ms
-    
-    // Stocker l'interval pour le nettoyer plus tard
-    progressBar.dataset.interval = interval;
   }
 }
 
@@ -974,29 +1033,18 @@ function updateProgress(progress) {
 function handleSuccess(result) {
   const messagesContainer = document.getElementById('grabsong-messages');
   
-  // Compléter rapidement la barre de progression à 100%
-  const fillBar = document.getElementById('progress-bar-fill');
-  if (fillBar) {
-    // Animation rapide de la progression actuelle vers 100%
-    let currentWidth = parseFloat(fillBar.style.width) || 0;
-    const quickInterval = setInterval(() => {
-      currentWidth += (100 - currentWidth) * 0.4; // Accélération rapide
-      fillBar.style.width = currentWidth.toFixed(1) + '%';
-      
-      if (currentWidth >= 99.5) {
-        fillBar.style.width = '100%';
-        clearInterval(quickInterval);
-        
-        // Attendre un peu avant d'afficher le succès
-        setTimeout(() => {
-          const progressBar = document.getElementById('progress-bar-container');
-          if (progressBar) {
-            progressBar.remove();
-          }
-          showSuccessMessage(result, messagesContainer);
-        }, 600);
-      }
-    }, 50);
+  // Supprimer le spinner
+  const spinnerContainer = document.getElementById('spinner-container');
+  if (spinnerContainer) {
+    // Ajouter une animation de fade out
+    spinnerContainer.style.opacity = '0';
+    spinnerContainer.style.transform = 'scale(0.9)';
+    spinnerContainer.style.transition = 'all 0.3s ease-out';
+    
+    setTimeout(() => {
+      spinnerContainer.remove();
+      showSuccessMessage(result, messagesContainer);
+    }, 300);
   } else {
     showSuccessMessage(result, messagesContainer);
   }

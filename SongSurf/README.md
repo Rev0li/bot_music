@@ -1,8 +1,8 @@
-# 🎵 GrabSong V3 - Linux/WSL Edition
+# 🎵 GrabSong V3 - Windows Edition
 
 Extension Chrome + Serveur Python pour télécharger et organiser automatiquement de la musique depuis YouTube Music.
 
-> **⚠️ Version Linux/WSL** - Cette version est conçue pour fonctionner sur Linux ou Windows Subsystem for Linux (WSL). Pour une version Windows native, voir la branche `windows`.
+> **🪟 Version Windows Native** - Cette version est optimisée pour Windows avec explorateur de fichiers intégré. Pour une version Linux/WSL, voir la branche `linux`.
 
 ## ✨ Fonctionnalités
 
@@ -11,29 +11,76 @@ Extension Chrome + Serveur Python pour télécharger et organiser automatiquemen
 - ✅ **Barre de progression animée** avec variations aléatoires
 - ✅ **Organisation automatique** (Artiste/Album/Titre.mp3)
 - ✅ **Tags ID3 complets** avec pochette d'album intégrée
-- ✅ **Dossier personnalisé** pour sauvegarder la musique
 - ✅ **Bouton "Télécharger à nouveau"** pour re-télécharger facilement
 - ✅ **Bouton "Annuler"** dans le formulaire de métadonnées
 
 ## 🚀 Installation
 
-### 1. Prérequis
+### Méthode Rapide (Recommandée) 🆕
+
+```bash
+cd V3/python-server
+./install.sh
+```
+
+Le script `install.sh` configure automatiquement tout :
+- ✅ Vérifie Python et FFmpeg
+- ✅ Crée l'environnement virtuel
+- ✅ Installe toutes les dépendances
+- ✅ Crée les dossiers nécessaires
+
+**Démarrage :**
+```bash
+./start.sh
+```
+
+> 📖 **Voir [QUICK_START.md](QUICK_START.md) pour un guide complet**
+
+---
+
+### Méthode Manuelle
+
+#### 1. Prérequis
 
 **FFmpeg** (requis par yt-dlp pour la conversion MP3)
 
 ```bash
-# Sur WSL/Ubuntu/Debian
+# Sur WSL/Ubuntu
 sudo apt update
-sudo apt install ffmpeg python3-pip
+sudo apt install ffmpeg
 
-# Sur Arch Linux
-sudo pacman -S ffmpeg python-pip
+# Sur Windows avec Winget
+winget install ffmpeg
+
+# Ou avec Chocolatey
+choco install ffmpeg
+
+# Vérifier l'installation
+ffmpeg -version
 ```
 
-### 2. Serveur Python
+**Python 3.8+**
+
+```bash
+# Sur WSL/Ubuntu
+sudo apt install python3 python3-venv python3-pip
+
+# Vérifier
+python3 --version
+```
+
+#### 2. Serveur Python
 
 ```bash
 cd V3/python-server
+
+# Créer l'environnement virtuel
+python3 -m venv venv
+
+# Activer l'environnement
+source venv/bin/activate  # WSL/Linux
+# ou
+venv\Scripts\activate     # Windows PowerShell
 
 # Installer les dépendances
 pip install -r requirements.txt
@@ -44,18 +91,7 @@ python app.py
 
 Le serveur démarre sur `http://localhost:5000`
 
-### 3. Configuration du Dossier Personnalisé (Optionnel)
-
-Si tu veux sauvegarder la musique dans un dossier Windows spécifique :
-
-1. Ouvre l'extension sur YouTube Music
-2. Clique sur **⚙ Paramètres**
-3. Dans **📁 Dossier de sauvegarde**, entre le chemin WSL :
-   - Exemple : `/mnt/c/Users/Molim/Music`
-   - Format : `/mnt/{lettre_lecteur}/{chemin}`
-4. Clique sur **✓ Valider** pour verrouiller le chemin
-
-### 4. Extension Chrome
+### 3. Extension Chrome
 
 ```
 1. Ouvrir chrome://extensions/
@@ -91,7 +127,14 @@ V3/
 
 1. **Lancer le serveur Python**
    ```bash
-   python python-server/app.py
+   cd V3/python-server
+   ./start.sh
+   ```
+   
+   Ou manuellement :
+   ```bash
+   source venv/bin/activate
+   python app.py
    ```
 
 2. **Aller sur YouTube Music**
@@ -99,15 +142,15 @@ V3/
    - Lancer une musique
 
 3. **Utiliser l'extension**
-   - Cliquer sur le widget "🎵 GrabSong V3"
+   - Cliquer sur le widget "🎵 GrabSong"
    - Cliquer sur "⬇️ Télécharger"
-   - Vérifier les métadonnées
+   - Vérifier/modifier les métadonnées
    - Cliquer sur "💾 Télécharger"
 
 4. **Résultat**
    - Le fichier se télécharge automatiquement
    - Il est organisé dans `music/Artist/Album/Title.mp3`
-   - Les tags ID3 sont mis à jour
+   - Les tags ID3 sont mis à jour avec pochette intégrée
 
 ## 🔄 Workflow
 
@@ -307,12 +350,12 @@ curl http://localhost:5000/stats
 
 ## 🎵 Happy Music Organizing!
 
-**Version:** 3.0.0 (Linux/WSL Edition)  
+**Version:** 3.0.0 (Windows Edition)  
 **Date:** 2025-10-10  
-**Powered by:** yt-dlp, Flask, Chrome Extensions
+**Powered by:** yt-dlp, Flask, Chrome Extensions, PowerShell
 
 ---
 
-## 🪟 Version Windows
+## 🐧 Version Linux/WSL
 
-Pour une version Windows native avec explorateur de fichiers intégré, voir la branche `windows`.
+Pour une version Linux/WSL, voir la branche `linux`.
