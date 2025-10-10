@@ -119,6 +119,13 @@ class YouTubeDownloader:
                 'embedthumbnail': True,  # Intégrer la pochette dans le MP3
                 'addmetadata': True,  # Ajouter les métadonnées
                 'nocheckcertificate': True,
+                # Options pour contourner les restrictions YouTube
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'web'],
+                        'player_skip': ['webpage', 'configs'],
+                    }
+                },
             }
             
             # Ajouter le chemin FFmpeg si trouvé

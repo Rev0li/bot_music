@@ -16,6 +16,8 @@ from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, APIC
 import shutil
 from datetime import datetime
 import mimetypes
+from PIL import Image
+import io
 
 
 class MusicOrganizer:
@@ -125,15 +127,22 @@ class MusicOrganizer:
         mp3_path = Path(mp3_path)
         base_name = mp3_path.stem
         
+        print(f"   🔍 Recherche de pochette pour: {base_name}")
+        
         # Extensions d'images possibles
         image_extensions = ['.jpg', '.jpeg', '.png', '.webp']
+        
+        # Lister tous les fichiers dans le dossier temp
+        temp_files = list(mp3_path.parent.glob('*'))
+        print(f"   📂 Fichiers dans temp/: {[f.name for f in temp_files]}")
         
         for ext in image_extensions:
             thumbnail = mp3_path.parent / f"{base_name}{ext}"
             if thumbnail.exists():
-                print(f"   🖼️ Pochette trouvée: {thumbnail.name}")
+                print(f"   ✅ Pochette trouvée: {thumbnail.name}")
                 return thumbnail
         
+        print(f"   ⚠️ Aucune pochette trouvée")
         return None
     
     def _update_tags(self, file_path, metadata, thumbnail_path=None):
@@ -148,6 +157,11 @@ class MusicOrganizer:
             except:
                 pass
             
+            # Vérifier si une pochette existe déjà (intégrée par yt-dlp)
+            has_existing_cover = 'APIC:' in audio.tags or any(key.startswith('APIC') for key in audio.tags.keys())
+            if has_existing_cover:
+                print(f"      ℹ️ Pochette existante détectée (sera remplacée pour compatibilité)")
+            
             # Mettre à jour les tags textuels
             audio.tags['TIT2'] = TIT2(encoding=3, text=metadata.get('title', ''))
             audio.tags['TPE1'] = TPE1(encoding=3, text=metadata.get('artist', ''))
@@ -156,25 +170,26 @@ class MusicOrganizer:
             if metadata.get('year'):
                 audio.tags['TDRC'] = TDRC(encoding=3, text=metadata.get('year', ''))
             
-            # Ajouter la pochette si disponible
+            # Ajouter/Remplacer la pochette si disponible (pour compatibilité maximale)
             if thumbnail_path and thumbnail_path.exists():
-                with open(thumbnail_path, 'rb') as img_file:
-                    img_data = img_file.read()
+                # Convertir en JPEG si nécessaire (pour compatibilité maximale)
+                img_data, mime_type = self._convert_image_to_jpeg(thumbnail_path)
                 
-                # Déterminer le type MIME
-                mime_type = mimetypes.guess_type(str(thumbnail_path))[0]
-                if not mime_type:
-                    mime_type = 'image/jpeg'
-                
-                # Ajouter la pochette
-                audio.tags['APIC'] = APIC(
-                    encoding=3,
-                    mime=mime_type,
-                    type=3,  # Cover (front)
-                    desc='Cover',
-                    data=img_data
-                )
-                print(f"      🖼️ Pochette intégrée au MP3")
+                if img_data:
+                    # Supprimer les pochettes existantes pour éviter les doublons
+                    audio.tags.delall('APIC')
+                    
+                    # Ajouter la pochette avec le bon format
+                    audio.tags.add(
+                        APIC(
+                            encoding=3,          # UTF-8
+                            mime=mime_type,      # Type MIME de l'image
+                            type=3,              # Cover (front)
+                            desc='Cover',        # Description
+                            data=img_data        # Données de l'image
+                        )
+                    )
+                    print(f"      🖼️ Pochette intégrée au MP3 ({len(img_data)} bytes, {mime_type})")
             
             # Sauvegarder
             audio.save()
@@ -183,6 +198,56 @@ class MusicOrganizer:
             
         except Exception as e:
             print(f"      ⚠️ Erreur lors de la mise à jour des tags: {str(e)}")
+    
+    def _convert_image_to_jpeg(self, image_path):
+        """
+        Convertit une image en JPEG pour compatibilité maximale
+        
+        Args:
+            image_path: Chemin vers l'image
+            
+        Returns:
+            tuple: (image_data, mime_type) ou (None, None) si erreur
+        """
+        try:
+            # Ouvrir l'image avec Pillow
+            img = Image.open(image_path)
+            
+            # Convertir en RGB si nécessaire (pour JPEG)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                # Créer un fond blanc
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                if img.mode == 'P':
+                    img = img.convert('RGBA')
+                background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                img = background
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Redimensionner si trop grande (max 1000x1000)
+            max_size = 1000
+            if img.width > max_size or img.height > max_size:
+                img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                print(f"      📐 Image redimensionnée à {img.width}x{img.height}")
+            
+            # Sauvegarder en JPEG dans un buffer
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=90, optimize=True)
+            img_data = buffer.getvalue()
+            
+            print(f"      🔄 Image convertie en JPEG ({len(img_data)} bytes)")
+            return img_data, 'image/jpeg'
+            
+        except Exception as e:
+            print(f"      ⚠️ Erreur conversion image: {str(e)}")
+            # Fallback: utiliser l'image originale
+            try:
+                with open(image_path, 'rb') as f:
+                    img_data = f.read()
+                mime_type = mimetypes.guess_type(str(image_path))[0] or 'image/jpeg'
+                return img_data, mime_type
+            except:
+                return None, None
     
     def get_stats(self):
         """Retourne les statistiques de la bibliothèque musicale"""

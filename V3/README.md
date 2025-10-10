@@ -1,14 +1,19 @@
-# 🎵 GrabSong V3 - Téléchargement Direct avec yt-dlp
+# 🎵 GrabSong V3 - Linux/WSL Edition
 
 Extension Chrome + Serveur Python pour télécharger et organiser automatiquement de la musique depuis YouTube Music.
 
-## ✨ Nouveautés V3
+> **⚠️ Version Linux/WSL** - Cette version est conçue pour fonctionner sur Linux ou Windows Subsystem for Linux (WSL). Pour une version Windows native, voir la branche `windows`.
+
+## ✨ Fonctionnalités
 
 - ✅ **Téléchargement direct** via yt-dlp (plus besoin de Y2Mate)
-- ✅ **Workflow simplifié** (Extension → Python → Fichier organisé)
-- ✅ **Plus rapide** (~10s au lieu de ~30s)
-- ✅ **Plus fiable** (pas de dépendance à un site externe)
-- ✅ **Progression en temps réel** (pourcentage, vitesse, ETA)
+- ✅ **Interface élégante** style Apple avec transitions douces
+- ✅ **Barre de progression animée** avec variations aléatoires
+- ✅ **Organisation automatique** (Artiste/Album/Titre.mp3)
+- ✅ **Tags ID3 complets** avec pochette d'album intégrée
+- ✅ **Dossier personnalisé** pour sauvegarder la musique
+- ✅ **Bouton "Télécharger à nouveau"** pour re-télécharger facilement
+- ✅ **Bouton "Annuler"** dans le formulaire de métadonnées
 
 ## 🚀 Installation
 
@@ -17,10 +22,12 @@ Extension Chrome + Serveur Python pour télécharger et organiser automatiquemen
 **FFmpeg** (requis par yt-dlp pour la conversion MP3)
 
 ```bash
-# Windows (avec Chocolatey)
-choco install ffmpeg
+# Sur WSL/Ubuntu/Debian
+sudo apt update
+sudo apt install ffmpeg python3-pip
 
-# Ou télécharger depuis: https://ffmpeg.org/download.html
+# Sur Arch Linux
+sudo pacman -S ffmpeg python-pip
 ```
 
 ### 2. Serveur Python
@@ -37,7 +44,18 @@ python app.py
 
 Le serveur démarre sur `http://localhost:5000`
 
-### 3. Extension Chrome
+### 3. Configuration du Dossier Personnalisé (Optionnel)
+
+Si tu veux sauvegarder la musique dans un dossier Windows spécifique :
+
+1. Ouvre l'extension sur YouTube Music
+2. Clique sur **⚙ Paramètres**
+3. Dans **📁 Dossier de sauvegarde**, entre le chemin WSL :
+   - Exemple : `/mnt/c/Users/Molim/Music`
+   - Format : `/mnt/{lettre_lecteur}/{chemin}`
+4. Clique sur **✓ Valider** pour verrouiller le chemin
+
+### 4. Extension Chrome
 
 ```
 1. Ouvrir chrome://extensions/
@@ -289,6 +307,12 @@ curl http://localhost:5000/stats
 
 ## 🎵 Happy Music Organizing!
 
-**Version:** 3.0.0  
+**Version:** 3.0.0 (Linux/WSL Edition)  
 **Date:** 2025-10-10  
 **Powered by:** yt-dlp, Flask, Chrome Extensions
+
+---
+
+## 🪟 Version Windows
+
+Pour une version Windows native avec explorateur de fichiers intégré, voir la branche `windows`.

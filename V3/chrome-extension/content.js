@@ -90,7 +90,8 @@ async function readFromClipboard() {
 // Variables globales
 let settings = {
   position: 'bottom-right',
-  opacity: 0.95
+  opacity: 0.95,
+  customFolder: '' // Dossier personnalisé pour sauvegarder la musique
 };
 
 let statusPollingInterval = null;
@@ -143,70 +144,119 @@ function createChatContainer() {
   const widget = document.createElement('div');
   widget.id = 'grabsong-widget';
   widget.style.cssText = `
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 15px;
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.06);
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   `;
   
   widget.innerHTML = `
     <!-- Header -->
-    <div id="grabsong-header" style="padding: 12px 15px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2);">
-      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: white;">
+    <div id="grabsong-header" style="padding: 16px; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.06);">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #1d1d1f;">
         <span style="font-size: 20px;">🎵</span>
-        <span style="font-weight: 600; font-size: 16px;">GrabSong V3</span>
+        <span style="font-weight: 600; font-size: 15px; letter-spacing: -0.3px;">GrabSong</span>
       </div>
     </div>
     
     <!-- Menu principal -->
     <div id="grabsong-menu" style="display: flex; flex-direction: column; gap: 8px; padding: 12px;">
-      <button id="grabsong-dl-btn" style="background: rgba(255,255,255,0.9); color: #667eea; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
-        <span style="font-size: 18px;">⬇️</span>
+      <button id="grabsong-dl-btn" style="background: #007AFF; color: white; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);">
+        <span style="font-size: 16px;">↓</span>
         <span>Télécharger</span>
       </button>
-      <button id="grabsong-settings-btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
-        <span style="font-size: 18px;">⚙️</span>
+      <button id="grabsong-settings-btn" style="background: rgba(0,0,0,0.04); color: #1d1d1f; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);">
+        <span style="font-size: 16px;">⚙</span>
         <span>Paramètres</span>
       </button>
     </div>
     
     <!-- Contenu Download -->
     <div id="grabsong-content-dl" style="display: none;">
-      <div id="grabsong-messages" style="padding: 15px; max-height: 450px; background: #f5f5f5; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-        <div class="grabsong-message system" style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
-          <strong>👋 Bienvenue !</strong><br>
-          <small>Prêt à télécharger...</small>
+      <div id="grabsong-messages" style="padding: 15px; max-height: 450px; background: #f5f5f7; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+        <div class="grabsong-message system" style="background: white; padding: 14px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+          <div style="font-size: 13px; color: #86868b;">Prêt à télécharger</div>
         </div>
       </div>
     </div>
     
     <!-- Contenu Settings -->
-    <div id="grabsong-content-settings" style="display: none; padding: 15px; background: white;">
-      <div style="margin-bottom: 15px;">
-        <strong style="color: #667eea;">📍 Position</strong>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
-          <button class="position-btn" data-position="top-left" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↖️ Haut Gauche</button>
-          <button class="position-btn" data-position="top-right" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↗️ Haut Droite</button>
-          <button class="position-btn" data-position="bottom-left" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↙️ Bas Gauche</button>
-          <button class="position-btn" data-position="bottom-right" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer; font-size: 12px;">↘️ Bas Droite</button>
+    <div id="grabsong-content-settings" style="display: none; padding: 15px; background: #f5f5f7; max-height: 450px; overflow-y: auto;">
+      <div style="background: white; padding: 12px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+        <strong style="color: #1d1d1f; font-size: 13px; font-weight: 600;">📍 Position</strong>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
+          <button class="position-btn" data-position="top-left" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↖ Haut G.</button>
+          <button class="position-btn" data-position="top-right" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↗ Haut D.</button>
+          <button class="position-btn" data-position="bottom-left" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↙ Bas G.</button>
+          <button class="position-btn" data-position="bottom-right" style="padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; background: white; cursor: pointer; font-size: 11px; color: #1d1d1f; font-weight: 500; transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);">↘ Bas D.</button>
         </div>
       </div>
       
-      <div style="margin-bottom: 15px;">
-        <strong style="color: #667eea;">🎨 Transparence</strong>
-        <div style="margin-top: 8px;">
-          <input type="range" id="opacity-slider" min="50" max="100" value="95" style="width: 100%;">
-          <div style="text-align: center; font-size: 12px; color: #666; margin-top: 5px;">
+      <div style="background: white; padding: 12px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+        <strong style="color: #1d1d1f; font-size: 13px; font-weight: 600;">🎨 Transparence</strong>
+        <div style="margin-top: 10px;">
+          <input type="range" id="opacity-slider" min="50" max="100" value="95" style="width: 100%; accent-color: #007AFF;">
+          <div style="text-align: center; font-size: 12px; color: #86868b; margin-top: 5px;">
             <span id="opacity-value">95</span>%
+          </div>
+        </div>
+      </div>
+      
+      <div style="background: white; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden;">
+        <strong style="color: #1d1d1f; font-size: 13px; font-weight: 600;">📁 Dossier de sauvegarde</strong>
+        <div style="margin-top: 10px;">
+          <div style="position: relative;">
+            <input type="text" id="custom-folder-input" placeholder="/mnt/c/Users/Molim/Music" 
+                   style="width: 100%; padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; font-size: 12px; color: #1d1d1f; background: #f5f5f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <div id="custom-folder-display" style="display: none; width: 100%; padding: 10px; border: 1px solid rgba(52, 199, 89, 0.3); border-radius: 8px; font-size: 12px; color: #1d1d1f; background: rgba(52, 199, 89, 0.05); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #86868b; margin-top: 6px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis;">
+            ⚠️ Chemin absolu WSL (ex: /mnt/c/Users/...)<br>
+            Laissez vide pour music/ par défaut
+          </div>
+          <div style="margin-top: 10px; display: flex; gap: 8px;">
+            <button id="validate-folder-btn" style="
+              flex: 1;
+              padding: 10px;
+              background: #34C759;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              font-size: 13px;
+              font-weight: 500;
+              cursor: pointer;
+              transition: all 2.4s cubic-bezier(0.16, 1, 0.3, 1);
+            ">
+              ✓ Valider
+            </button>
+            <button id="modify-folder-btn" style="
+              flex: 1;
+              padding: 10px;
+              background: rgba(0,0,0,0.04);
+              color: #1d1d1f;
+              border: none;
+              border-radius: 8px;
+              font-size: 13px;
+              font-weight: 500;
+              cursor: pointer;
+              transition: all 2.4s cubic-bezier(0.16, 1, 0.3, 1);
+              display: none;
+            ">
+              ✏️ Modifier
+            </button>
           </div>
         </div>
       </div>
     </div>
     
     <!-- Footer -->
-    <div id="grabsong-footer" style="display: none; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-top: 1px solid rgba(255,255,255,0.2);">
-      <button id="grabsong-close-btn" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+    <div id="grabsong-footer" style="display: none; padding: 12px; background: white; border-top: 1px solid rgba(0,0,0,0.06);">
+      <button id="grabsong-close-btn" style="width: 100%; padding: 11px; background: rgba(0,0,0,0.04); color: #1d1d1f; border: none; border-radius: 10px; font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);">
         Fermer
       </button>
     </div>
@@ -237,23 +287,108 @@ function createChatContainer() {
   
   document.getElementById('opacity-slider').addEventListener('change', saveSettings);
   
+  // Custom folder - Bouton Valider
+  const validateBtn = document.getElementById('validate-folder-btn');
+  validateBtn.addEventListener('click', () => {
+    const input = document.getElementById('custom-folder-input');
+    const display = document.getElementById('custom-folder-display');
+    const modifyBtn = document.getElementById('modify-folder-btn');
+    
+    const folderPath = input.value.trim();
+    settings.customFolder = folderPath;
+    saveSettings();
+    
+    // Afficher le chemin validé
+    display.textContent = folderPath || 'music/ (par défaut)';
+    display.style.display = 'block';
+    input.style.display = 'none';
+    
+    // Inverser les boutons
+    validateBtn.style.display = 'none';
+    modifyBtn.style.display = 'block';
+    
+    log('✅', 'Custom folder locked:', settings.customFolder);
+  });
+  
+  // Effet hover - Valider
+  validateBtn.addEventListener('mouseenter', () => {
+    validateBtn.style.background = '#30B350';
+    validateBtn.style.transform = 'scale(1.02)';
+  });
+  validateBtn.addEventListener('mouseleave', () => {
+    validateBtn.style.background = '#34C759';
+    validateBtn.style.transform = 'scale(1)';
+  });
+  
+  // Custom folder - Bouton Modifier
+  const modifyBtn = document.getElementById('modify-folder-btn');
+  modifyBtn.addEventListener('click', () => {
+    const input = document.getElementById('custom-folder-input');
+    const display = document.getElementById('custom-folder-display');
+    
+    // Afficher l'input pour modification
+    input.style.display = 'block';
+    display.style.display = 'none';
+    
+    // Inverser les boutons
+    validateBtn.style.display = 'block';
+    modifyBtn.style.display = 'none';
+    
+    // Focus sur l'input
+    input.focus();
+    
+    log('✏️', 'Custom folder unlocked for editing');
+  });
+  
+  // Effet hover - Modifier
+  modifyBtn.addEventListener('mouseenter', () => {
+    modifyBtn.style.background = 'rgba(0,0,0,0.08)';
+    modifyBtn.style.transform = 'scale(1.02)';
+  });
+  modifyBtn.addEventListener('mouseleave', () => {
+    modifyBtn.style.background = 'rgba(0,0,0,0.04)';
+    modifyBtn.style.transform = 'scale(1)';
+  });
+  
   loadSettings();
   updatePositionButtons();
+  updateCustomFolderInput();
   
   log('✅', 'Chat container created');
+}
+
+// Mettre à jour le champ custom folder
+function updateCustomFolderInput() {
+  const input = document.getElementById('custom-folder-input');
+  const display = document.getElementById('custom-folder-display');
+  const validateBtn = document.getElementById('validate-folder-btn');
+  const modifyBtn = document.getElementById('modify-folder-btn');
+  
+  if (input && settings.customFolder) {
+    input.value = settings.customFolder;
+    
+    // Si un chemin est déjà sauvegardé, l'afficher en mode "validé"
+    display.textContent = settings.customFolder;
+    display.style.display = 'block';
+    input.style.display = 'none';
+    validateBtn.style.display = 'none';
+    modifyBtn.style.display = 'block';
+  }
 }
 
 // Mettre à jour les boutons de position
 function updatePositionButtons() {
   document.querySelectorAll('.position-btn').forEach(btn => {
     if (btn.dataset.position === settings.position) {
-      btn.style.borderColor = '#667eea';
-      btn.style.background = '#f0f7ff';
+      btn.style.borderColor = '#007AFF';
+      btn.style.background = 'rgba(0, 122, 255, 0.08)';
+      btn.style.color = '#007AFF';
       btn.style.fontWeight = '600';
     } else {
-      btn.style.borderColor = '#ddd';
+      btn.style.borderColor = 'rgba(0,0,0,0.1)';
       btn.style.background = 'white';
-      btn.style.fontWeight = 'normal';
+      btn.style.color = '#1d1d1f';
+      btn.style.fontWeight = '500';
     }
   });
 }
@@ -281,11 +416,66 @@ function showDownloadView() {
   document.getElementById('grabsong-footer').style.display = 'block';
   document.getElementById('grabsong-container').style.width = '380px';
   
-  // Lancer le téléchargement
+  // Afficher le bouton de démarrage
   const messages = document.getElementById('grabsong-messages');
   if (messages.children.length === 1) {
-    performDownload();
+    showStartButton();
   }
+}
+
+// Afficher le bouton de démarrage
+function showStartButton() {
+  const messagesContainer = document.getElementById('grabsong-messages');
+  
+  messagesContainer.innerHTML = `
+    <div style="
+      background: white;
+      border-radius: 16px;
+      padding: 32px 20px;
+      text-align: center;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    ">
+      <div style="font-size: 56px; margin-bottom: 16px; opacity: 0.9;">🎵</div>
+      <strong style="font-size: 17px; display: block; margin-bottom: 8px; color: #1d1d1f; font-weight: 600; letter-spacing: -0.3px;">
+        Prêt à télécharger
+      </strong>
+      <p style="font-size: 13px; color: #86868b; margin-bottom: 24px; line-height: 1.4;">
+        Extrait et télécharge la chanson<br>en cours de lecture
+      </p>
+      <button id="start-download-btn" style="
+        padding: 13px 28px;
+        background: #007AFF;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        font-size: 15px;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+        letter-spacing: -0.2px;
+      ">
+        Télécharger
+      </button>
+    </div>
+  `;
+  
+  // Ajouter l'événement au bouton
+  const btn = document.getElementById('start-download-btn');
+  btn.addEventListener('click', () => {
+    messagesContainer.innerHTML = '<div style="padding: 10px; text-align: center; color: #999; font-size: 12px;">Extraction en cours...</div>';
+    performDownload();
+  });
+  
+  // Effet hover subtil
+  btn.addEventListener('mouseenter', () => {
+    btn.style.transform = 'scale(1.02)';
+    btn.style.boxShadow = '0 6px 16px rgba(0, 122, 255, 0.4)';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.transform = 'scale(1)';
+    btn.style.boxShadow = '0 4px 12px rgba(0, 122, 255, 0.3)';
+  });
 }
 
 // Afficher la vue Settings
@@ -332,6 +522,44 @@ style.textContent = `
       opacity: 1;
       transform: translateX(0);
     }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(15px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .grabsong-message {
+    animation: fadeIn 3.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  #grabsong-edit-form {
+    animation: scaleIn 3.0s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  button {
+    transition: all 2.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  
+  #grabsong-container {
+    transition: all 3.0s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 `;
 document.head.appendChild(style);
@@ -524,26 +752,61 @@ function showEditForm(songData) {
              style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
     </div>
     
-    <button id="save-and-download" style="
-      width: 100%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: transform 0.2s;
-    ">
-      💾 Télécharger
-    </button>
+    <div style="display: flex; gap: 10px;">
+      <button id="cancel-btn" style="
+        flex: 1;
+        background: #f5f5f5;
+        color: #666;
+        border: 1px solid #ddd;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+      ">
+        ❌ Annuler
+      </button>
+      
+      <button id="save-and-download" style="
+        flex: 2;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+      ">
+        💾 Télécharger
+      </button>
+    </div>
   `;
   
   messagesContainer.appendChild(formDiv);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
   
-  // Bouton télécharger
+  // Bouton Annuler
+  document.getElementById('cancel-btn').addEventListener('click', () => {
+    formDiv.remove();
+    // Retour à l'écran d'accueil
+    showStartButton();
+  });
+  
+  // Effet hover sur Annuler
+  const cancelBtn = document.getElementById('cancel-btn');
+  cancelBtn.addEventListener('mouseenter', () => {
+    cancelBtn.style.background = '#e0e0e0';
+    cancelBtn.style.borderColor = '#bbb';
+  });
+  cancelBtn.addEventListener('mouseleave', () => {
+    cancelBtn.style.background = '#f5f5f5';
+    cancelBtn.style.borderColor = '#ddd';
+  });
+  
+  // Bouton Télécharger
   document.getElementById('save-and-download').addEventListener('click', () => {
     songData.artist = document.getElementById('edit-artist').value;
     songData.album = document.getElementById('edit-album').value;
@@ -553,6 +816,17 @@ function showEditForm(songData) {
     formDiv.remove();
     startDownload(songData);
   });
+  
+  // Effet hover sur Télécharger
+  const downloadBtn = document.getElementById('save-and-download');
+  downloadBtn.addEventListener('mouseenter', () => {
+    downloadBtn.style.transform = 'translateY(-2px)';
+    downloadBtn.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+  });
+  downloadBtn.addEventListener('mouseleave', () => {
+    downloadBtn.style.transform = 'translateY(0)';
+    downloadBtn.style.boxShadow = 'none';
+  });
 }
 
 // Lancer le téléchargement
@@ -560,6 +834,12 @@ async function startDownload(songData) {
   try {
     // Étape 3: Téléchargement
     addChatMessage('<div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 5px;">⬇️ Étape 3/3 : Téléchargement</div>Envoi au serveur Python...', 'info');
+    
+    // Ajouter le custom folder si défini
+    if (settings.customFolder) {
+      songData.custom_folder = settings.customFolder;
+      log('📁', 'Using custom folder:', settings.customFolder);
+    }
     
     // Envoyer au serveur Python
     const response = await chrome.runtime.sendMessage({
@@ -621,54 +901,171 @@ function startStatusPolling() {
 
 // Mettre à jour la progression
 function updateProgress(progress) {
-  const existingProgress = document.getElementById('progress-message');
-  if (existingProgress) {
-    existingProgress.remove();
+  let progressBar = document.getElementById('progress-bar-container');
+  
+  // Créer la barre de progression si elle n'existe pas
+  if (!progressBar) {
+    const messagesContainer = document.getElementById('grabsong-messages');
+    
+    progressBar = document.createElement('div');
+    progressBar.id = 'progress-bar-container';
+    progressBar.className = 'grabsong-message info';
+    progressBar.style.cssText = `
+      background: white;
+      padding: 16px;
+      margin-bottom: 10px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    `;
+    
+    progressBar.innerHTML = `
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 13px; color: #1d1d1f; font-weight: 500; margin-bottom: 4px;">
+          Téléchargement en cours
+        </div>
+        <div style="font-size: 12px; color: #86868b;">
+          Veuillez patienter...
+        </div>
+      </div>
+      <div style="width: 100%; height: 6px; background: rgba(0, 122, 255, 0.1); border-radius: 10px; overflow: hidden;">
+        <div id="progress-bar-fill" style="
+          width: 0%;
+          height: 100%;
+          background: linear-gradient(90deg, #007AFF 0%, #5AC8FA 100%);
+          border-radius: 10px;
+          transition: width 0.3s ease-out;
+        "></div>
+      </div>
+    `;
+    
+    messagesContainer.appendChild(progressBar);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Animation automatique sur 10 secondes avec variations aléatoires
+    let currentProgress = 0;
+    let targetProgress = 0;
+    
+    const interval = setInterval(() => {
+      // Ajouter une variation aléatoire (entre 0.3% et 1.5%)
+      const randomIncrement = Math.random() * 1.2 + 0.3;
+      targetProgress += randomIncrement;
+      
+      // Limiter à 95% jusqu'à la fin réelle
+      if (targetProgress >= 95) {
+        targetProgress = 95;
+        clearInterval(interval);
+      }
+      
+      // Interpolation douce vers la cible
+      currentProgress += (targetProgress - currentProgress) * 0.3;
+      
+      const fillBar = document.getElementById('progress-bar-fill');
+      if (fillBar) {
+        fillBar.style.width = currentProgress.toFixed(1) + '%';
+      }
+    }, 100); // Mise à jour toutes les 100ms
+    
+    // Stocker l'interval pour le nettoyer plus tard
+    progressBar.dataset.interval = interval;
   }
-  
-  const percent = progress.percent || 0;
-  const status = progress.status || 'downloading';
-  
-  let message = '';
-  if (status === 'downloading') {
-    message = `⏳ Téléchargement en cours... ${percent}%`;
-  } else if (status === 'processing') {
-    message = `🔄 Conversion en MP3... ${percent}%`;
-  }
-  
-  const messageDiv = document.createElement('div');
-  messageDiv.id = 'progress-message';
-  messageDiv.className = 'grabsong-message info';
-  messageDiv.style.cssText = `
-    background: white;
-    border-left: 4px solid #2196F3;
-    padding: 12px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    font-size: 14px;
-  `;
-  messageDiv.innerHTML = `<strong>${message}</strong>`;
-  
-  const messagesContainer = document.getElementById('grabsong-messages');
-  messagesContainer.appendChild(messageDiv);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
 // Gérer le succès
 function handleSuccess(result) {
-  addChatMessage(
-    `<div style="background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 10px; padding: 15px; text-align: center;">
-      <div style="font-size: 32px; margin-bottom: 10px;">✅</div>
-      <strong style="color: #2e7d32; font-size: 18px;">Téléchargement terminé !</strong>
-      <p style="margin: 10px 0; color: #666; font-size: 14px;">
-        📁 ${result.file_path}
-      </p>
-      <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
-        Le fichier a été organisé automatiquement
-      </p>
-    </div>`,
-    'success'
-  );
+  const messagesContainer = document.getElementById('grabsong-messages');
+  
+  // Compléter rapidement la barre de progression à 100%
+  const fillBar = document.getElementById('progress-bar-fill');
+  if (fillBar) {
+    // Animation rapide de la progression actuelle vers 100%
+    let currentWidth = parseFloat(fillBar.style.width) || 0;
+    const quickInterval = setInterval(() => {
+      currentWidth += (100 - currentWidth) * 0.4; // Accélération rapide
+      fillBar.style.width = currentWidth.toFixed(1) + '%';
+      
+      if (currentWidth >= 99.5) {
+        fillBar.style.width = '100%';
+        clearInterval(quickInterval);
+        
+        // Attendre un peu avant d'afficher le succès
+        setTimeout(() => {
+          const progressBar = document.getElementById('progress-bar-container');
+          if (progressBar) {
+            progressBar.remove();
+          }
+          showSuccessMessage(result, messagesContainer);
+        }, 600);
+      }
+    }, 50);
+  } else {
+    showSuccessMessage(result, messagesContainer);
+  }
+}
+
+function showSuccessMessage(result, messagesContainer) {
+  const successDiv = document.createElement('div');
+  successDiv.className = 'grabsong-message success';
+  successDiv.style.cssText = `
+    background: white;
+    border-radius: 16px;
+    padding: 28px 20px;
+    text-align: center;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  `;
+  
+  successDiv.innerHTML = `
+    <div style="width: 56px; height: 56px; margin: 0 auto 16px; background: #34C759; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px;">
+      ✓
+    </div>
+    <strong style="color: #1d1d1f; font-size: 17px; font-weight: 600; letter-spacing: -0.3px; display: block; margin-bottom: 8px;">
+      Téléchargement terminé
+    </strong>
+    <p style="margin: 0 0 6px 0; color: #86868b; font-size: 13px; line-height: 1.4;">
+      📁 ${result.file_path}
+    </p>
+    <p style="margin: 0 0 20px 0; font-size: 12px; color: #86868b;">
+      Organisé automatiquement
+    </p>
+    <button id="download-again-btn" style="
+      padding: 12px 24px;
+      background: #007AFF;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+      letter-spacing: -0.2px;
+    ">
+      Télécharger une autre chanson
+    </button>
+  `;
+  
+  messagesContainer.appendChild(successDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  
+  // Ajouter l'événement au bouton
+  document.getElementById('download-again-btn').addEventListener('click', () => {
+    // Vider les messages
+    messagesContainer.innerHTML = '<div style="padding: 10px; text-align: center; color: #999; font-size: 12px;">Prêt à télécharger !</div>';
+    
+    // Relancer le téléchargement
+    performDownload();
+  });
+  
+  // Effet hover subtil
+  const btn = document.getElementById('download-again-btn');
+  btn.addEventListener('mouseenter', () => {
+    btn.style.transform = 'scale(1.02)';
+    btn.style.boxShadow = '0 6px 16px rgba(0, 122, 255, 0.4)';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.transform = 'scale(1)';
+    btn.style.boxShadow = '0 4px 12px rgba(0, 122, 255, 0.3)';
+  });
   
   log('✅', 'Download completed:', result);
 }

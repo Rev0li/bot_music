@@ -1,0 +1,38 @@
+🎵 GrabSong V3.0.0 - Linux/WSL Edition
+
+✨ Fonctionnalités principales
+- Interface élégante style Apple avec transitions ultra-douces
+- Barre de progression animée avec variations aléatoires (10s)
+- Dossier personnalisé pour sauvegarder la musique (format WSL)
+- Bouton "Télécharger à nouveau" et "Annuler"
+- Système de validation/verrouillage du PATH
+- Tags ID3 complets avec pochette d'album intégrée
+
+🎨 Interface
+- Design Apple-like (backdrop filter, ombres subtiles, rounded corners)
+- Transitions: fadeIn 3.6s, scaleIn 3.0s, buttons 2.4s
+- Barre de progression avec gradient bleu et animation fluide
+- Overflow hidden pour gérer les chemins longs
+- Effets hover avec scale et couleurs
+
+🔧 Technique
+- Téléchargement direct via yt-dlp (plus besoin de Y2Mate)
+- Organisation automatique (Artiste/Album/Titre.mp3)
+- Conversion automatique pochettes WebP → JPEG
+- Redimensionnement images (max 1000x1000)
+- Support chemins WSL (/mnt/c/...)
+- Gestion doublons avec suffixes
+
+📦 Stack
+- Backend: Flask 3.0.0 + yt-dlp + mutagen + Pillow
+- Frontend: Chrome Extension (Manifest V3)
+- Système: Linux/WSL + FFmpeg
+
+📝 Notes
+- Version optimisée pour Linux/WSL
+- Configuration manuelle du chemin (pas de file picker)
+- Nettoyage des logs de debug
+- README et VERSION.md mis à jour
+
+🚀 Prochaine étape
+- Branche `windows` pour version Windows native
