@@ -451,13 +451,24 @@ function updateDownloadList(status) {
     });
   }
   
-  // 3. En attente - en bas (simulé avec queue_size)
-  for (let i = 0; i < status.queue_size; i++) {
-    items.push({
-      state: 'extract',
-      metadata: { artist: 'En attente', title: `Position ${i + 1}` },
-      canCancel: false
+  // 3. En attente - en bas (afficher les vraies métadonnées de la queue si disponibles)
+  if (status.queue && status.queue.length > 0) {
+    status.queue.forEach((queueItem, i) => {
+      items.push({
+        state: 'extract',
+        metadata: queueItem.metadata || { artist: 'En attente', title: `Position ${i + 1}` },
+        canCancel: false
+      });
     });
+  } else {
+    // Fallback si pas de détails de queue
+    for (let i = 0; i < status.queue_size; i++) {
+      items.push({
+        state: 'extract',
+        metadata: { artist: 'En attente', title: `Position ${i + 1}` },
+        canCancel: false
+      });
+    }
   }
   
   // Générer le HTML
@@ -480,8 +491,9 @@ function updateDownloadList(status) {
       
       // Pour l'historique (Rangé), afficher seulement l'icône + titre
       if (item.state === 'song') {
+        const itemKey = `${item.metadata.title}:${item.metadata.artist}`;
         return `
-          <div class="download-item history-item" style="
+          <div class="download-item history-item" data-state="song" data-key="${itemKey}" style="
             background: white;
             border-radius: 10px;
             padding: 6px 10px;
@@ -520,8 +532,9 @@ function updateDownloadList(status) {
       }
       
       // Pour les items actifs (Extraction, Conversion)
+      const itemKey = `${item.metadata.title}:${item.metadata.artist}`;
       return `
-        <div class="download-item" data-state="${item.state}" style="
+        <div class="download-item" data-state="${item.state}" data-key="${itemKey}" style="
           background: white;
           border-radius: 10px;
           padding: 8px 10px;
@@ -608,53 +621,283 @@ function updateDownloadList(status) {
   
   // Créer une signature de l'état actuel pour détecter les vrais changements
   const currentState = JSON.stringify({
-    historyCount: downloadHistory.length,
-    historyTitles: downloadHistory.map(h => h.metadata.title),
+    historyTitles: downloadHistory.map(h => h.metadata.title + '|' + h.metadata.artist),
     inProgress: status.in_progress,
     currentTitle: status.current_download?.metadata?.title,
+    currentArtist: status.current_download?.metadata?.artist,
+    queueTitles: (status.queue || []).map(q => q.metadata?.title).filter(Boolean),
     queueSize: status.queue_size
   });
   
   // Mettre à jour seulement si l'état a vraiment changé
   if (lastRenderedState !== currentState) {
-    const existingItems = messagesContainer.querySelectorAll('.download-item');
+    const existingItems = Array.from(messagesContainer.querySelectorAll('.download-item'));
     
-    // Si le nombre d'items est différent, on doit recréer (nouveau téléchargement ou suppression)
-    if (existingItems.length !== items.length) {
-      messagesContainer.innerHTML = html;
-    } else {
-      // Sinon, mettre à jour uniquement les données qui changent (sans recréer le DOM)
-      items.forEach((item, index) => {
-        const existingItem = existingItems[index];
-        if (!existingItem) return;
+    // Créer une clé unique pour chaque item (sans l'état pour permettre la transformation)
+    const getItemKey = (item) => `${item.metadata.title}:${item.metadata.artist}`;
+    
+    // Map des items existants par clé
+    const existingMap = new Map();
+    existingItems.forEach(el => {
+      const key = el.getAttribute('data-key');
+      if (key) existingMap.set(key, el);
+    });
+    
+    // Map des nouveaux items par clé
+    const newMap = new Map();
+    items.forEach(item => {
+      const key = getItemKey(item);
+      newMap.set(key, item);
+    });
+    
+    // 1. Supprimer les items qui n'existent plus
+    existingItems.forEach(el => {
+      const key = el.getAttribute('data-key');
+      if (key && !newMap.has(key)) {
+        // Animation de sortie vers le haut (effet tapis roulant)
+        el.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-30px) scale(0.95)';
+        el.style.maxHeight = el.offsetHeight + 'px';
         
-        const config = stateConfig[item.state];
+        requestAnimationFrame(() => {
+          el.style.maxHeight = '0';
+          el.style.marginBottom = '0';
+          el.style.paddingTop = '0';
+          el.style.paddingBottom = '0';
+        });
         
-        // Pour l'historique (une seule div de texte)
-        if (item.state === 'song') {
-          const titleEl = existingItem.querySelector('div:nth-child(2)');
-          if (titleEl && titleEl.textContent !== item.metadata.title) {
-            titleEl.textContent = item.metadata.title;
-          }
-        } else {
-          // Pour les items actifs (3 divs : état, titre, artiste)
-          const stateEl = existingItem.querySelector('div:nth-child(2) > div:nth-child(1)');
-          const titleEl = existingItem.querySelector('div:nth-child(2) > div:nth-child(2)');
-          const artistEl = existingItem.querySelector('div:nth-child(2) > div:nth-child(3)');
+        setTimeout(() => el.remove(), 500);
+      }
+    });
+    
+    // 2. Ajouter ou mettre à jour les items
+    items.forEach((item, index) => {
+      const key = getItemKey(item);
+      const config = stateConfig[item.state];
+      
+      // Si l'item existe déjà, le mettre à jour
+      if (existingMap.has(key)) {
+        const existingEl = existingMap.get(key);
+        const existingState = existingEl.getAttribute('data-state');
+        
+        // Si l'état a changé (Conversion → Rangé), transformer l'élément
+        if (existingState !== item.state) {
+          existingEl.setAttribute('data-state', item.state);
           
-          if (stateEl && stateEl.textContent !== config.label) {
-            stateEl.textContent = config.label;
-            stateEl.style.color = config.color;
+          // Animation de transformation
+          existingEl.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+          
+          if (item.state === 'song') {
+            // Transformer en format historique (compact)
+            existingEl.className = 'download-item history-item';
+            existingEl.style.padding = '6px 10px';
+            existingEl.style.opacity = '0.7';
+            
+            // Remplacer le contenu
+            existingEl.innerHTML = `
+              <div style="
+                width: 24px;
+                height: 24px;
+                border-radius: 8px;
+                background: ${config.bg};
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+                color: ${config.color};
+              ">${config.icon}</div>
+              <div style="
+                flex: 1;
+                min-width: 0;
+                font-size: 12px;
+                color: #1d1d1f;
+                font-weight: 500;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              ">${item.metadata.title}</div>
+            `;
           }
-          if (titleEl && titleEl.textContent !== item.metadata.title) {
-            titleEl.textContent = item.metadata.title;
-          }
-          if (artistEl && artistEl.textContent !== item.metadata.artist) {
-            artistEl.textContent = item.metadata.artist;
+        } 
+        // Sinon, mettre à jour uniquement les textes si nécessaire
+        else {
+          if (item.state === 'song') {
+            const titleEl = existingEl.querySelector('div:nth-child(2)');
+            if (titleEl && titleEl.textContent !== item.metadata.title) {
+              titleEl.textContent = item.metadata.title;
+            }
+          } else {
+            const stateEl = existingEl.querySelector('div:nth-child(2) > div:nth-child(1)');
+            const titleEl = existingEl.querySelector('div:nth-child(2) > div:nth-child(2)');
+            const artistEl = existingEl.querySelector('div:nth-child(2) > div:nth-child(3)');
+            
+            if (stateEl && stateEl.textContent !== config.label) {
+              stateEl.textContent = config.label;
+              stateEl.style.color = config.color;
+            }
+            if (titleEl && titleEl.textContent !== item.metadata.title) {
+              titleEl.textContent = item.metadata.title;
+            }
+            if (artistEl && artistEl.textContent !== item.metadata.artist) {
+              artistEl.textContent = item.metadata.artist;
+            }
           }
         }
-      });
-    }
+        
+        // S'assurer que l'ordre est correct avec une transition smooth
+        const currentIndex = Array.from(messagesContainer.children).indexOf(existingEl);
+        if (currentIndex !== index) {
+          // Ajouter une transition pour le réordonnancement
+          if (!existingEl.style.transition.includes('transform')) {
+            existingEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+          }
+          
+          const referenceNode = messagesContainer.children[index];
+          if (referenceNode) {
+            messagesContainer.insertBefore(existingEl, referenceNode);
+          } else {
+            messagesContainer.appendChild(existingEl);
+          }
+        }
+      } 
+      // Sinon, créer un nouvel élément
+      else {
+        // Générer le HTML pour cet item spécifique
+        let itemHtml = '';
+        if (item.state === 'song') {
+          itemHtml = `
+            <div class="download-item history-item" data-state="song" data-key="${key}" style="
+              background: white;
+              border-radius: 10px;
+              padding: 6px 10px;
+              margin-bottom: 4px;
+              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+              border: 1px solid rgba(0, 0, 0, 0.04);
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              opacity: 0.7;
+            ">
+              <div style="
+                width: 24px;
+                height: 24px;
+                border-radius: 8px;
+                background: ${config.bg};
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+                color: ${config.color};
+              ">${config.icon}</div>
+              <div style="
+                flex: 1;
+                min-width: 0;
+                font-size: 12px;
+                color: #1d1d1f;
+                font-weight: 500;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              ">${item.metadata.title}</div>
+            </div>
+          `;
+        } else {
+          itemHtml = `
+            <div class="download-item" data-state="${item.state}" data-key="${key}" style="
+              background: white;
+              border-radius: 10px;
+              padding: 8px 10px;
+              margin-bottom: 4px;
+              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+              border: 1px solid rgba(0, 0, 0, 0.04);
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            ">
+              <div style="
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                background: ${config.bg};
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
+                flex-shrink: 0;
+              ">${config.icon}</div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="
+                  font-size: 10px;
+                  font-weight: 600;
+                  color: ${config.color};
+                  margin-bottom: 2px;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                ">${config.label}</div>
+                <div style="
+                  font-size: 12px;
+                  color: #1d1d1f;
+                  font-weight: 600;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                ">${item.metadata.title}</div>
+                <div style="
+                  font-size: 10px;
+                  color: #86868b;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                  margin-top: 1px;
+                ">${item.metadata.artist}</div>
+              </div>
+              ${item.canCancel ? `
+                <button onclick="event.stopPropagation(); cancelCurrentDownload();" style="
+                  background: rgba(244, 67, 54, 0.1);
+                  border: 1px solid rgba(244, 67, 54, 0.2);
+                  color: #f44336;
+                  width: 28px;
+                  height: 28px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  transition: all 0.2s;
+                  font-size: 12px;
+                ">❌</button>
+              ` : ''}
+            </div>
+          `;
+        }
+        
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = itemHtml;
+        const newEl = tempDiv.firstElementChild;
+        
+        if (newEl) {
+          newEl.style.opacity = '0';
+          newEl.style.transform = 'translateY(20px)';
+          
+          const referenceNode = messagesContainer.children[index];
+          if (referenceNode) {
+            messagesContainer.insertBefore(newEl, referenceNode);
+          } else {
+            messagesContainer.appendChild(newEl);
+          }
+          
+          // Animation d'apparition
+          requestAnimationFrame(() => {
+            newEl.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            newEl.style.opacity = '1';
+            newEl.style.transform = 'translateY(0)';
+          });
+        }
+      }
+    });
     
     lastRenderedState = currentState;
   }
@@ -1160,41 +1403,25 @@ function startStatusPolling() {
       
       // Ajouter à l'historique si un téléchargement vient de se terminer
       if (status.last_completed && status.last_completed.metadata) {
-        const lastInHistory = downloadHistory[downloadHistory.length - 1];
+        // Créer une clé unique pour identifier le téléchargement
+        const completedKey = `${status.last_completed.metadata.title}|||${status.last_completed.metadata.artist}`;
+        
         // Vérifier si ce n'est pas déjà dans l'historique
-        if (!lastInHistory || 
-            lastInHistory.metadata.title !== status.last_completed.metadata.title ||
-            lastInHistory.metadata.artist !== status.last_completed.metadata.artist) {
-          
-          // Si on va dépasser 5, animer la suppression du premier
+        const alreadyInHistory = downloadHistory.some(item => {
+          const itemKey = `${item.metadata.title}|||${item.metadata.artist}`;
+          return itemKey === completedKey;
+        });
+        
+        if (!alreadyInHistory) {
+          // Si on va dépasser 5, supprimer le premier sans animation (pour éviter les clips)
           if (downloadHistory.length >= 5) {
-            const messagesContainer = document.getElementById('grabsong-messages');
-            if (messagesContainer) {
-              const firstItem = messagesContainer.querySelector('.download-item');
-              if (firstItem) {
-                firstItem.classList.add('removing');
-                // Attendre la fin de l'animation avant de supprimer (800ms pour laisser l'animation complète)
-                setTimeout(() => {
-                  downloadHistory.shift();
-                  downloadHistory.push({
-                    metadata: status.last_completed.metadata,
-                    timestamp: Date.now()
-                  });
-                  updateDownloadList(status);
-                }, 800);
-                return; // Ne pas mettre à jour tout de suite
-              }
-            }
+            downloadHistory.shift();
           }
           
           downloadHistory.push({
             metadata: status.last_completed.metadata,
             timestamp: Date.now()
           });
-          // Garder seulement les 5 derniers
-          if (downloadHistory.length > 5) {
-            downloadHistory.shift();
-          }
         }
       }
       
