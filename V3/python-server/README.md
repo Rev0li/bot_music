@@ -10,25 +10,58 @@ python-server/
 ├── downloader.py    # Module yt-dlp (téléchargement)
 ├── organizer.py     # Module d'organisation
 ├── requirements.txt # Dépendances Python
+├── install.sh       # 🆕 Script d'installation automatique
+├── start.sh         # 🆕 Script de démarrage
 └── venv/           # Environnement virtuel (ignoré par Git)
 ```
 
 ## 🚀 Installation
+
+### Méthode 1 : Script automatique (recommandé)
+
+```bash
+# Rendre le script exécutable
+chmod +x install.sh
+
+# Lancer l'installation
+./install.sh
+```
+
+Le script `install.sh` va automatiquement :
+- ✅ Vérifier Python et FFmpeg
+- ✅ Créer l'environnement virtuel
+- ✅ Installer toutes les dépendances
+- ✅ Créer les dossiers nécessaires
+- ✅ Tester les modules
+
+### Méthode 2 : Installation manuelle
 
 ```bash
 # Créer l'environnement virtuel
 python3 -m venv venv
 
 # Activer l'environnement
-source venv/bin/activate  # Linux/macOS
+source venv/bin/activate  # Linux/macOS/WSL
 # ou
-venv\Scripts\activate     # Windows
+venv\Scripts\activate     # Windows PowerShell
 
 # Installer les dépendances
 pip install -r requirements.txt
 ```
 
 ## ▶️ Lancement
+
+### Méthode 1 : Script de démarrage (recommandé)
+
+```bash
+# Rendre le script exécutable
+chmod +x start.sh
+
+# Lancer le serveur
+./start.sh
+```
+
+### Méthode 2 : Démarrage manuel
 
 ```bash
 # Activer l'environnement virtuel

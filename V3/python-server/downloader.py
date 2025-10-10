@@ -85,7 +85,7 @@ class YouTubeDownloader:
         Télécharge une vidéo YouTube en MP3
         
         Args:
-            url (str): URL YouTube
+            url (str): URL YouTube ou YouTube Music
             metadata (dict): {artist, album, title, year}
             
         Returns:
@@ -93,7 +93,19 @@ class YouTubeDownloader:
         """
         try:
             print(f"\n🎵 Téléchargement: {metadata.get('title', 'Unknown')}")
-            print(f"   URL: {url}")
+            print(f"   URL originale: {url}")
+            
+            # Convertir l'URL YouTube Music en URL YouTube classique
+            if 'music.youtube.com' in url:
+                # Extraire le video ID de l'URL YouTube Music
+                import re
+                video_id_match = re.search(r'[?&]v=([^&]+)', url)
+                if video_id_match:
+                    video_id = video_id_match.group(1)
+                    url = f'https://www.youtube.com/watch?v={video_id}'
+                    print(f"   🔄 Converti en: {url}")
+            
+            print(f"   📥 Téléchargement depuis: {url}")
             
             # Reset la progression
             self.progress.reset()
@@ -116,16 +128,7 @@ class YouTubeDownloader:
                 'progress_hooks': [self.progress.update],
                 'noplaylist': True,  # Ne télécharger QUE la vidéo, pas la playlist
                 'writethumbnail': True,  # Télécharger la pochette
-                'embedthumbnail': True,  # Intégrer la pochette dans le MP3
-                'addmetadata': True,  # Ajouter les métadonnées
                 'nocheckcertificate': True,
-                # Options pour contourner les restrictions YouTube
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'web'],
-                        'player_skip': ['webpage', 'configs'],
-                    }
-                },
             }
             
             # Ajouter le chemin FFmpeg si trouvé
@@ -190,6 +193,8 @@ class YouTubeDownloader:
             Path('C:/ffmpeg/bin'),
             Path('C:/Program Files/ffmpeg/bin'),
             Path.home() / 'Downloads' / 'ffmpeg-8.0' / 'bin',
+            # Chemins winget (versions multiples possibles)
+            Path.home() / 'AppData' / 'Local' / 'Microsoft' / 'WinGet' / 'Packages' / 'Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe' / 'ffmpeg-8.0-full_build' / 'bin',
             Path.home() / 'AppData' / 'Local' / 'Microsoft' / 'WinGet' / 'Packages' / 'Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe' / 'ffmpeg-7.1-full_build' / 'bin',
             # Ajoutez votre chemin ici si différent
         ]

@@ -15,6 +15,13 @@ UTILISATION:
   Le serveur démarre sur http://localhost:5000
 """
 
+# Fix pour l'encodage Windows
+import sys
+import io
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
@@ -126,9 +133,6 @@ def download():
             'year': data.get('year', '')
         }
         
-        # Custom folder (optionnel)
-        custom_folder = data.get('custom_folder', '')
-        
         print(f"\n{'='*60}")
         print(f"🎵 NOUVELLE REQUÊTE DE TÉLÉCHARGEMENT")
         print(f"{'='*60}")
@@ -137,14 +141,12 @@ def download():
         print(f"Album: {metadata['album']}")
         print(f"Titre: {metadata['title']}")
         print(f"Année: {metadata['year']}")
-        if custom_folder:
-            print(f"📁 Dossier personnalisé: {custom_folder}")
         print(f"{'='*60}\n")
         
         # Lancer le téléchargement dans un thread séparé
         download_thread = threading.Thread(
             target=process_download,
-            args=(url, metadata, custom_folder)
+            args=(url, metadata)
         )
         download_thread.start()
         
@@ -204,23 +206,11 @@ def get_stats():
     return jsonify(stats)
 
 
-@app.route('/browse_folder', methods=['POST'])
-def browse_folder():
-    """
-    Endpoint désactivé pour la version Linux/WSL
-    L'utilisateur doit saisir manuellement le chemin WSL
-    """
-    return jsonify({
-        'success': False,
-        'error': 'Fonctionnalité non disponible sur Linux. Veuillez saisir le chemin manuellement (ex: /mnt/c/Users/Music)'
-    }), 501
-
-
 # ============================================
 # FONCTIONS
 # ============================================
 
-def process_download(url, metadata, custom_folder=''):
+def process_download(url, metadata):
     """
     Traite un téléchargement (télécharge + organise)
     Exécuté dans un thread séparé
@@ -244,18 +234,11 @@ def process_download(url, metadata, custom_folder=''):
                 raise Exception(download_result.get('error', 'Erreur inconnue'))
             
             file_path = download_result['file_path']
-            
-            # Créer l'organizer avec le dossier personnalisé si fourni
-            if custom_folder:
-                music_organizer = MusicOrganizer(Path(custom_folder))
-                print(f"📁 Utilisation du dossier personnalisé: {custom_folder}")
-            else:
-                music_organizer = organizer
             print(f"✅ Téléchargement terminé: {file_path}")
             
             # Étape 2: Organiser
             print("\n📁 Étape 2/2: Organisation...")
-            organize_result = music_organizer.organize(file_path, metadata)
+            organize_result = organizer.organize(file_path, metadata)
             
             if not organize_result['success']:
                 raise Exception(organize_result.get('error', 'Erreur inconnue'))
@@ -315,7 +298,6 @@ if __name__ == '__main__':
     print("   POST /download       → Lancer un téléchargement")
     print("   POST /cleanup        → Nettoyer le dossier temp/")
     print("   GET  /stats          → Statistiques de la bibliothèque")
-    print("   POST /browse_folder  → Sélectionner un dossier")
     print("\n" + "="*60 + "\n")
     
     # Lancer le serveur
