@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrabSong V3</title>
+  <style>
+    body {
+      width: 300px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .header p {
+      margin: 5px 0 0 0;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .status {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .status-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .status-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    
+    .status-value {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    
+    .indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+    
+    .indicator.online {
+      background: #4CAF50;
+      box-shadow: 0 0 10px #4CAF50;
+    }
+    
+    .indicator.offline {
+      background: #f44336;
+      box-shadow: 0 0 10px #f44336;
+    }
+    
+    .info {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    
+    .info strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 11px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>
+      <span>🎵</span>
+      <span>GrabSong V3</span>
+    </h1>
+    <p>Téléchargement direct avec yt-dlp</p>
+  </div>
+  
+  <div class="status">
+    <div class="status-item">
+      <span class="status-label">Serveur Python</span>
+      <span class="status-value">
+        <span class="indicator" id="server-indicator"></span>
+        <span id="server-status">Vérification...</span>
+      </span>
+    </div>
+  </div>
+  
+  <div class="info">
+    <strong>💡 Comment utiliser :</strong>
+    1. Lancez le serveur Python<br>
+    2. Allez sur YouTube Music<br>
+    3. Cliquez sur le widget GrabSong<br>
+    4. Téléchargez votre musique !
+  </div>
+  
+  <div class="footer">
+    Version 3.0.0 - Powered by yt-dlp
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

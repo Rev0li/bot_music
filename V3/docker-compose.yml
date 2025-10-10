@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  grabsong-server:
+    build: .
+    container_name: grabsong-v3
+    ports:
+      - "5000:5000"
+    volumes:
+      # Monter les dossiers pour persister les données
+      - ./temp:/app/temp
+      - ./music:/app/music
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/ping')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - grabsong-network
+
+networks:
+  grabsong-network:
+    driver: bridge
