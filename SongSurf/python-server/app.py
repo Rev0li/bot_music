@@ -22,13 +22,14 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from pathlib import Path
 from datetime import datetime
 import threading
 import time
 import queue
+from collections import deque
 
 # Import des modules
 from downloader import YouTubeDownloader
@@ -74,9 +75,37 @@ download_status = {
     'queue_position': 0
 }
 
+# Système de logs (max 500 entrées)
+MAX_LOGS = 500
+app_logs = deque(maxlen=MAX_LOGS)
+logs_lock = threading.Lock()
+
+def add_log(level, message, data=None):
+    """Ajoute un log avec timestamp"""
+    log_entry = {
+        'timestamp': datetime.now().isoformat(),
+        'level': level,  # INFO, WARNING, ERROR, SUCCESS
+        'message': message,
+        'data': data
+    }
+    with logs_lock:
+        app_logs.append(log_entry)
+    
+    # Afficher aussi dans la console
+    emoji = {'INFO': 'ℹ️', 'WARNING': '⚠️', 'ERROR': '❌', 'SUCCESS': '✅'}.get(level, '📝')
+    print(f"{emoji} [{level}] {message}")
+    if data:
+        print(f"   Data: {data}")
+
 # ============================================
 # ROUTES
 # ============================================
+
+@app.route('/', methods=['GET'])
+def dashboard():
+    """Dashboard principal"""
+    return render_template('dashboard.html')
+
 
 @app.route('/ping', methods=['GET'])
 def ping():
@@ -98,6 +127,9 @@ def get_status():
         # Ajouter la progression si un téléchargement est en cours
         if status['in_progress']:
             status['progress'] = downloader.get_progress()
+        
+        # Ajouter les détails de la queue pour le dashboard
+        status['queue'] = list(download_queue.queue)
         
         return jsonify(status)
 
@@ -160,6 +192,14 @@ def download():
         print(f"Année: {metadata['year']}")
         print(f"{'='*60}\n")
         
+        # Log
+        add_log('INFO', f"Téléchargement ajouté à la queue: {metadata['title']} - {metadata['artist']}", {
+            'url': url,
+            'metadata': metadata,
+            'queue_position': queue_size,
+            'queue_size': queue_size
+        })
+        
         return jsonify({
             'success': True,
             'message': 'Ajouté à la queue',
@@ -170,6 +210,7 @@ def download():
         
     except Exception as e:
         print(f"❌ Erreur: {str(e)}")
+        add_log('ERROR', f"Erreur lors de l'ajout à la queue: {str(e)}", {'error': str(e)})
         return jsonify({
             'success': False,
             'error': str(e)
@@ -181,12 +222,16 @@ def cancel_download():
     """Annule le téléchargement en cours"""
     try:
         if not download_status['in_progress']:
+            add_log('WARNING', 'Tentative d\'annulation sans téléchargement en cours')
             return jsonify({
                 'success': False,
                 'error': 'Aucun téléchargement en cours'
             }), 400
         
         print("\n🛑 ANNULATION DU TÉLÉCHARGEMENT EN COURS...")
+        add_log('WARNING', 'Annulation du téléchargement en cours', {
+            'download': download_status['current_download']
+        })
         cancel_flag.set()
         
         return jsonify({
@@ -207,6 +252,7 @@ def cleanup():
     """Nettoie le dossier temp/"""
     try:
         print("\n🧹 Nettoyage du dossier temp/...")
+        add_log('INFO', 'Démarrage du nettoyage du dossier temp/')
         
         deleted_files = []
         
@@ -218,6 +264,9 @@ def cleanup():
                     print(f"   🗑️ Supprimé: {file.name}")
         
         print(f"✅ Nettoyage terminé: {len(deleted_files)} fichier(s) supprimé(s)\n")
+        add_log('SUCCESS', f'Nettoyage terminé: {len(deleted_files)} fichier(s) supprimé(s)', {
+            'deleted_files': deleted_files
+        })
         
         # Reset le statut
         download_status['in_progress'] = False
@@ -242,6 +291,98 @@ def get_stats():
     """Retourne les statistiques de la bibliothèque musicale"""
     stats = organizer.get_stats()
     return jsonify(stats)
+
+
+@app.route('/api/library', methods=['GET'])
+def get_library():
+    """Retourne la structure complète de la bibliothèque"""
+    structure = organizer.get_library_structure()
+    return jsonify(structure)
+
+
+@app.route('/api/apply-corrections', methods=['POST'])
+def apply_corrections():
+    """Applique les corrections de feat (déplace et renomme les fichiers)"""
+    try:
+        data = request.get_json()
+        corrections = data.get('corrections', [])
+        
+        if not corrections:
+            return jsonify({'success': False, 'error': 'Aucune correction à appliquer'})
+        
+        add_log('INFO', f'Début de l\'application de {len(corrections)} correction(s)', {
+            'count': len(corrections)
+        })
+        
+        results = []
+        for correction in corrections:
+            song_path = correction.get('song_path')
+            target_artist = correction.get('target_artist')
+            feat_artist = correction.get('feat_artist')
+            
+            add_log('INFO', f'Correction: {song_path} → {target_artist} (feat. {feat_artist})')
+            
+            # Appeler la fonction de l'organizer pour déplacer le fichier
+            result = organizer.move_and_rename_feat(song_path, target_artist, feat_artist)
+            results.append(result)
+            
+            if result['success']:
+                add_log('SUCCESS', f'✅ Correction appliquée: {result["new_path"]}')
+            else:
+                add_log('ERROR', f'❌ Échec: {result.get("error")}')
+        
+        # Compter les succès
+        success_count = sum(1 for r in results if r['success'])
+        
+        add_log('INFO', f'Corrections terminées: {success_count}/{len(corrections)} réussies')
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'success_count': success_count,
+            'total': len(corrections)
+        })
+        
+    except Exception as e:
+        add_log('ERROR', f'Erreur lors de l\'application des corrections: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/logs', methods=['GET'])
+def logs_page():
+    """Page des logs de debugging"""
+    return render_template('logs.html')
+
+
+@app.route('/api/logs', methods=['GET'])
+def get_logs():
+    """Retourne les logs en JSON"""
+    with logs_lock:
+        # Convertir deque en liste (du plus récent au plus ancien)
+        logs_list = list(reversed(app_logs))
+        return jsonify({
+            'logs': logs_list,
+            'total': len(logs_list),
+            'max_logs': MAX_LOGS
+        })
+
+
+@app.route('/api/logs/clear', methods=['POST'])
+def clear_logs():
+    """Efface tous les logs"""
+    try:
+        with logs_lock:
+            app_logs.clear()
+        add_log('INFO', 'Logs effacés manuellement')
+        return jsonify({
+            'success': True,
+            'message': 'Logs effacés'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # ============================================
@@ -288,34 +429,77 @@ def queue_worker():
             print(f"Titre: {metadata['title']}")
             print(f"{'='*60}\n")
             
+            add_log('INFO', f"Démarrage du téléchargement: {metadata['title']} - {metadata['artist']}", {
+                'url': url,
+                'metadata': metadata,
+                'queue_remaining': download_queue.qsize()
+            })
+            
             try:
                 # Étape 1: Télécharger
                 print("📥 Étape 1/2: Téléchargement...")
+                add_log('INFO', '📥 Étape 1/2: Début du téléchargement via yt-dlp', {
+                    'url': url,
+                    'title': metadata['title'],
+                    'artist': metadata['artist']
+                })
+                
                 download_result = downloader.download(url, metadata)
+                
+                add_log('INFO', 'Résultat du téléchargement reçu', {
+                    'success': download_result.get('success'),
+                    'has_file_path': 'file_path' in download_result
+                })
                 
                 # Vérifier annulation
                 if cancel_flag.is_set():
+                    add_log('WARNING', 'Téléchargement annulé par l\'utilisateur')
                     raise Exception("Téléchargement annulé par l'utilisateur")
                 
                 if not download_result['success']:
-                    raise Exception(download_result.get('error', 'Erreur inconnue'))
+                    error_msg = download_result.get('error', 'Erreur inconnue')
+                    add_log('ERROR', f'Échec du téléchargement: {error_msg}', download_result)
+                    raise Exception(error_msg)
                 
                 file_path = download_result['file_path']
                 print(f"✅ Téléchargement terminé: {file_path}")
+                add_log('SUCCESS', '✅ Téléchargement terminé avec succès', {
+                    'file_path': file_path,
+                    'file_size': download_result.get('file_size', 'unknown')
+                })
                 
                 # Vérifier annulation
                 if cancel_flag.is_set():
+                    add_log('WARNING', 'Annulation détectée avant organisation')
                     raise Exception("Téléchargement annulé par l'utilisateur")
                 
                 # Étape 2: Organiser
                 print("\n📁 Étape 2/2: Organisation...")
+                add_log('INFO', '📁 Étape 2/2: Début de l\'organisation du fichier', {
+                    'file_path': file_path,
+                    'target_artist': metadata['artist'],
+                    'target_album': metadata['album']
+                })
+                
                 organize_result = organizer.organize(file_path, metadata)
                 
+                add_log('INFO', 'Résultat de l\'organisation reçu', {
+                    'success': organize_result.get('success'),
+                    'has_final_path': 'final_path' in organize_result
+                })
+                
                 if not organize_result['success']:
-                    raise Exception(organize_result.get('error', 'Erreur inconnue'))
+                    error_msg = organize_result.get('error', 'Erreur inconnue')
+                    add_log('ERROR', f'Échec de l\'organisation: {error_msg}', organize_result)
+                    raise Exception(error_msg)
                 
                 final_path = organize_result['final_path']
                 print(f"✅ Organisation terminée: {final_path}")
+                add_log('SUCCESS', '✅ Organisation terminée avec succès', {
+                    'final_path': final_path,
+                    'artist_folder': metadata['artist'],
+                    'album_folder': metadata['album']
+                })
                 
                 # Succès
                 with queue_lock:
@@ -335,6 +519,12 @@ def queue_worker():
                 print(f"Queue restante: {download_queue.qsize()}")
                 print(f"{'='*60}\n")
                 
+                add_log('SUCCESS', f"Téléchargement complet: {metadata['title']} - {metadata['artist']}", {
+                    'final_path': final_path,
+                    'metadata': metadata,
+                    'queue_remaining': download_queue.qsize()
+                })
+                
             except Exception as e:
                 # Erreur
                 print(f"\n{'='*60}")
@@ -342,6 +532,12 @@ def queue_worker():
                 print(f"{'='*60}")
                 print(f"Erreur: {str(e)}")
                 print(f"{'='*60}\n")
+                
+                add_log('ERROR', f"Erreur lors du téléchargement: {str(e)}", {
+                    'error': str(e),
+                    'metadata': metadata,
+                    'url': url
+                })
                 
                 with queue_lock:
                     download_status['in_progress'] = False
@@ -375,18 +571,30 @@ if __name__ == '__main__':
     print("🚀 Serveur démarré sur http://localhost:5000")
     print("="*60)
     print("\n💡 Endpoints disponibles:")
+    print("   GET  /                → Dashboard principal")
+    print("   GET  /logs           → Page de logs (debugging)")
     print("   GET  /ping           → Test de connexion")
     print("   GET  /status         → Statut du téléchargement + queue")
     print("   POST /download       → Ajouter à la queue")
     print("   POST /cancel         → Annuler le téléchargement en cours")
     print("   POST /cleanup        → Nettoyer le dossier temp/")
     print("   GET  /stats          → Statistiques de la bibliothèque")
+    print("   GET  /api/logs       → Récupérer les logs en JSON")
     print("\n" + "="*60 + "\n")
+    
+    # Logs de démarrage
+    add_log('SUCCESS', 'Serveur SongSurf démarré', {
+        'temp_dir': str(TEMP_DIR),
+        'music_dir': str(MUSIC_DIR),
+        'max_queue': MAX_QUEUE_SIZE,
+        'max_logs': MAX_LOGS
+    })
     
     # Démarrer le queue worker dans un thread séparé
     worker_thread = threading.Thread(target=queue_worker, daemon=True)
     worker_thread.start()
     print("✅ Queue worker démarré\n")
+    add_log('INFO', 'Queue worker démarré')
     
     # Lancer le serveur
     app.run(

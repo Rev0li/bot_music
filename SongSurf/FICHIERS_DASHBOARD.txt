@@ -1,0 +1,114 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    📁 FICHIERS DU DASHBOARD SONGSURF
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 FICHIERS PRINCIPAUX
+─────────────────────────────────────────────────────────────────────────────
+
+📄 python-server/templates/dashboard.html
+   → Template HTML du dashboard
+   → Interface utilisateur complète
+   → Taille: ~4 KB
+
+📄 python-server/static/dashboard.css
+   → Styles minimalistes avec thème sombre
+   → Design responsive
+   → Taille: ~7 KB
+
+📄 python-server/static/dashboard.js
+   → Logique JavaScript
+   → Auto-refresh toutes les 2 secondes
+   → Gestion de l'historique
+   → Taille: ~8 KB
+
+📄 python-server/app.py (MODIFIÉ)
+   → Ajout de la route GET /
+   → Ajout de render_template dans les imports
+   → Ajout des détails de queue dans /status
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION
+─────────────────────────────────────────────────────────────────────────────
+
+📖 DASHBOARD.md
+   → Documentation complète du dashboard
+   → Fonctionnalités détaillées
+   → Configuration et personnalisation
+   → Dépannage
+
+📖 LANCEMENT_RAPIDE.md
+   → Guide de démarrage rapide
+   → Instructions en 2 étapes
+   → Conseils d'utilisation
+
+📖 NOUVEAUTES_DASHBOARD.md
+   → Présentation de la nouveauté
+   → Cas d'usage
+   → Avantages
+
+📖 DASHBOARD_PREVIEW.txt
+   → Aperçu visuel ASCII du dashboard
+   → Donne une idée du design
+
+📖 python-server/static/README.md
+   → Documentation des fichiers statiques
+   → Guide de personnalisation
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 FICHIERS DE LANCEMENT
+─────────────────────────────────────────────────────────────────────────────
+
+⚡ start_dashboard.bat
+   → Lancement rapide pour Windows
+   → Double-clic pour démarrer
+   → Configure l'encodage UTF-8
+
+🔧 python-server/test_dashboard.py
+   → Script de vérification
+   → Teste la présence des fichiers
+   → Affiche les tailles
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 RÉSUMÉ
+─────────────────────────────────────────────────────────────────────────────
+
+Fichiers créés:        11
+Fichiers modifiés:     2 (app.py, README.md)
+Taille totale:         ~30 KB
+Dossiers créés:        2 (templates/, static/)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 POUR DÉMARRER
+─────────────────────────────────────────────────────────────────────────────
+
+Windows:
+   1. Double-cliquer sur: start_dashboard.bat
+   2. Ouvrir: http://localhost:5000
+
+Ligne de commande:
+   1. cd SongSurf/python-server
+   2. python app.py
+   3. Ouvrir: http://localhost:5000
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ VÉRIFICATION
+
+Pour vérifier que tout est en place:
+   cd python-server
+   python test_dashboard.py
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📝 NOTES
+
+- Tous les fichiers utilisent l'encodage UTF-8
+- Le dashboard est accessible uniquement en local (localhost)
+- Aucune dépendance supplémentaire requise (Flask déjà installé)
+- Compatible avec votre serveur Python existant
+
+═══════════════════════════════════════════════════════════════════════════════

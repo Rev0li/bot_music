@@ -1,12 +1,12 @@
 /**
- * background.js - Service Worker pour GrabSong V3
+ * background.js - Service Worker pour SongSurf
  * 
  * FONCTIONNALITÉ:
  *   - Gère la communication avec le serveur Python
  *   - Pas de gestion d'onglets (plus besoin de Y2Mate)
  */
 
-console.log('🎵 [GrabSong V3] Service Worker démarré');
+console.log('🎵 [SongSurf] Service Worker démarré');
 
 // Configuration
 const PYTHON_SERVER = 'http://localhost:5000';

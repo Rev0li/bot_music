@@ -13,6 +13,7 @@ Extension Chrome + Serveur Python pour télécharger et organiser automatiquemen
 - ✅ **Tags ID3 complets** avec pochette d'album intégrée
 - ✅ **Bouton "Télécharger à nouveau"** pour re-télécharger facilement
 - ✅ **Bouton "Annuler"** dans le formulaire de métadonnées
+- ✅ **Dashboard web minimaliste** pour surveiller vos téléchargements en temps réel 🆕
 
 ## 🚀 Installation
 
@@ -137,20 +138,27 @@ V3/
    python app.py
    ```
 
-2. **Aller sur YouTube Music**
+2. **Accéder au Dashboard** 🆕
+   - Ouvrir http://localhost:5000 dans votre navigateur
+   - Voir les statistiques en temps réel
+   - Surveiller les téléchargements en cours
+   - Consulter l'historique
+
+3. **Aller sur YouTube Music**
    - Ouvrir https://music.youtube.com
    - Lancer une musique
 
-3. **Utiliser l'extension**
+4. **Utiliser l'extension**
    - Cliquer sur le widget "🎵 GrabSong"
    - Cliquer sur "⬇️ Télécharger"
    - Vérifier/modifier les métadonnées
    - Cliquer sur "💾 Télécharger"
 
-4. **Résultat**
+5. **Résultat**
    - Le fichier se télécharge automatiquement
    - Il est organisé dans `music/Artist/Album/Title.mp3`
    - Les tags ID3 sont mis à jour avec pochette intégrée
+   - Le dashboard se met à jour en temps réel
 
 ## 🔄 Workflow
 
@@ -199,6 +207,15 @@ music/Artist/Album/Title.mp3 (avec tags ID3)
 ```
 
 ## 📖 API du Serveur Python
+
+### GET /
+Dashboard web minimaliste 🆕
+
+Affiche une interface web pour surveiller:
+- Statistiques de la bibliothèque
+- Téléchargements en cours
+- File d'attente
+- Historique des téléchargements
 
 ### GET /ping
 Test de connexion
