@@ -82,6 +82,593 @@ async function loadLibrary() {
 
 // Rendre l'arbre de la bibliothèque
 function renderLibraryTree() {
+    if (!libraryData || !libraryData.songs) return;
+    
+    if (viewMode === 'grid') {
+        renderGridView();
+    } else {
+        renderListView();
+    }
+}
+
+// Render Grid View (4 colonnes)
+function renderGridView() {
+    const container = document.getElementById('library-tree');
+    
+    // Grouper par artiste avec le premier album
+    const artistsMap = new Map();
+    libraryData.songs.forEach(song => {
+        if (!artistsMap.has(song.artist)) {
+            // Chercher la pochette dans différents champs possibles
+            const albumArt = song.album_art || song.albumArt || song.cover || song.artwork || null;
+            
+            artistsMap.set(song.artist, {
+                albums: new Set(),
+                songCount: 0,
+                firstAlbum: song.album,
+                albumArt: albumArt,
+                firstSong: song
+            });
+        }
+        artistsMap.get(song.artist).albums.add(song.album);
+        artistsMap.get(song.artist).songCount++;
+    });
+    
+    let html = '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">';
+    
+    Array.from(artistsMap.entries()).sort().forEach(([artist, data]) => {
+        const albumCount = data.albums.size;
+        const songCount = data.songCount;
+        const albumArt = data.albumArt;
+        
+        // Échapper les guillemets pour onclick
+        const escapedArtist = artist.replace(/'/g, "\\'");
+        
+        html += `
+            <div class="grid-card" onclick="openArtistModal('${escapedArtist}')" style="
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-md);
+                padding: 0;
+                cursor: pointer;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                overflow: hidden;
+            ">
+                <div style="
+                    aspect-ratio: 1;
+                    background: ${albumArt ? `url('${albumArt}') center/cover` : 'linear-gradient(135deg, rgba(138, 180, 248, 0.2) 0%, rgba(174, 203, 250, 0.1) 100%)'};
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 56px;
+                    overflow: hidden;
+                    position: relative;
+                ">
+                    ${albumArt ? '' : '<span style="opacity: 0.6;">🎤</span>'}
+                    <div style="
+                        position: absolute;
+                        inset: 0;
+                        background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.4) 100%);
+                    "></div>
+                </div>
+                <div style="padding: 16px;">
+                    <h3 style="
+                        font-size: 15px;
+                        font-weight: 600;
+                        color: var(--text-primary);
+                        margin: 0 0 6px 0;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        letter-spacing: -0.01em;
+                    ">${artist}</h3>
+                    <p style="
+                        font-size: 13px;
+                        color: var(--text-secondary);
+                        margin: 0;
+                        font-weight: 400;
+                    ">
+                        ${albumCount} album${albumCount > 1 ? 's' : ''} • ${songCount} chanson${songCount > 1 ? 's' : ''}
+                    </p>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    
+    // Add hover effect
+    container.querySelectorAll('.grid-card').forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.style.background = 'var(--bg-hover)';
+            card.style.borderColor = 'var(--border-hover)';
+            card.style.transform = 'translateY(-6px)';
+            card.style.boxShadow = 'var(--shadow-md)';
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.background = 'var(--bg-card)';
+            card.style.borderColor = 'var(--border)';
+            card.style.transform = 'translateY(0)';
+            card.style.boxShadow = 'none';
+        });
+    });
+}
+function openArtistModal(artist) {
+    // Bloquer le scroll de la page principale
+    document.body.style.overflow = 'hidden';
+    
+    // Créer la modale
+    const modal = document.createElement('div');
+    modal.id = 'artist-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--bg-primary);
+        z-index: 10000;
+        overflow-y: auto;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    // Filtrer les chansons de cet artiste
+    const artistSongs = libraryData.songs.filter(s => s.artist === artist);
+    
+    // Organiser par album
+    const albums = {};
+    artistSongs.forEach(song => {
+        if (!albums[song.album]) {
+            albums[song.album] = [];
+        }
+        albums[song.album].push(song);
+    });
+    
+    // Compter le total de chansons
+    const totalSongs = artistSongs.length;
+    
+    // Construire le HTML
+    let html = `
+        <div class="modal-container" style="max-width: 1400px; margin: 0 auto; padding: 48px 40px;">
+            <!-- Header -->
+            <div class="header" style="
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+                margin-bottom: 48px;
+                padding-bottom: 24px;
+                border-bottom: 1px solid var(--border);
+            ">
+                <div>
+                    <h1 style="
+                        font-size: 36px; 
+                        margin: 0 0 8px 0;
+                        font-weight: 700;
+                        letter-spacing: -0.02em;
+                        background: linear-gradient(135deg, #f9fafb 0%, #a5b4fc 100%);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                    ">🎤 ${artist}</h1>
+                    <p style="
+                        font-size: 15px;
+                        color: var(--text-secondary);
+                        margin: 0;
+                    ">${Object.keys(albums).length} album${Object.keys(albums).length > 1 ? 's' : ''} • ${totalSongs} chanson${totalSongs > 1 ? 's' : ''}</p>
+                </div>
+                <button class="close-btn" onclick="closeArtistModal()" style="
+                    width: 44px;
+                    height: 44px;
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                    border-radius: 50%;
+                    color: var(--text-primary);
+                    font-size: 20px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                " onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--border-hover)'; this.style.transform='rotate(90deg)'" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border)'; this.style.transform='rotate(0deg)'">
+                    ✕
+                </button>
+            </div>
+            
+            <!-- Albums Grid (2 colonnes responsive) -->
+            <div class="albums-grid" style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+                gap: 32px;
+            ">
+    `;
+    
+    Object.keys(albums).sort().forEach(album => {
+        const songs = albums[album];
+        // Chercher la pochette dans différents champs possibles
+        const albumArt = songs[0].album_art || songs[0].albumArt || songs[0].cover || songs[0].artwork || null;
+        
+        html += `
+            <div class="album-card" style="
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-lg);
+                overflow: hidden;
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+            " onmouseover="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 20px 40px rgba(0, 0, 0, 0.5)'; this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='none'; this.style.transform='translateY(0)'">
+                <!-- Pochette Album -->
+                <div class="album-cover-container" style="
+                    position: relative;
+                    padding: 32px;
+                    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 240px;
+                ">
+                    <div class="album-cover-wrapper" style="
+                        position: relative;
+                        width: 180px;
+                        height: 180px;
+                        border-radius: var(--radius-md);
+                        overflow: hidden;
+                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                    " onmouseover="this.style.transform='scale(1.05) rotate(2deg)'" onmouseout="this.style.transform='scale(1) rotate(0deg)'">
+                        ${albumArt ? `
+                            <img src="${albumArt}" style="
+                                width: 100%;
+                                height: 100%;
+                                object-fit: cover;
+                            " onerror="this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;background:linear-gradient(135deg,rgba(138,180,248,0.3) 0%,rgba(174,203,250,0.15) 100%);display:flex;align-items:center;justify-content:center;font-size:64px;position:relative\\'><span style=\\'opacity:0.5\\'>💿</span></div>'">
+                        ` : `
+                            <div class="album-placeholder" style="
+                                width: 100%;
+                                height: 100%;
+                                background: linear-gradient(135deg, rgba(138, 180, 248, 0.3) 0%, rgba(174, 203, 250, 0.15) 100%);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 64px;
+                                position: relative;
+                            ">
+                                <span style="opacity: 0.5;">💿</span>
+                            </div>
+                        `}
+                    </div>
+                </div>
+                
+                <!-- Info Album -->
+                <div class="album-info" style="padding: 28px 32px;">
+                    <div class="album-header" style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: start;
+                        margin-bottom: 24px;
+                        gap: 16px;
+                    ">
+                        <div>
+                            <h2 class="album-title" style="
+                                font-size: 22px; 
+                                margin: 0 0 8px 0; 
+                                font-weight: 700;
+                                letter-spacing: -0.02em;
+                                color: var(--text-primary);
+                            ">${album}</h2>
+                            <div class="album-meta" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                font-size: 13px;
+                                color: var(--text-secondary);
+                            ">
+                                <span class="album-badge" style="
+                                    background: rgba(99, 102, 241, 0.15);
+                                    color: var(--accent);
+                                    padding: 4px 12px;
+                                    border-radius: 20px;
+                                    font-weight: 600;
+                                    font-size: 12px;
+                                    white-space: nowrap;
+                                ">${songs.length} chanson${songs.length > 1 ? 's' : ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chansons -->
+                    <div class="songs-list" style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 2px;
+                    ">
+        `;
+        
+        songs.forEach((song, index) => {
+            html += `
+                <div class="song-item" style="
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                    padding: 12px 10px;
+                    background: transparent;
+                    border-radius: var(--radius-sm);
+                    transition: all 0.2s;
+                    cursor: pointer;
+                    position: relative;
+                    overflow: hidden;
+                " onmouseover="this.style.background='var(--bg-hover)'; this.style.paddingLeft='18px'; this.querySelector('.song-icon').style.opacity='1'; this.querySelector('.song-icon').style.transform='scale(1.1)'" onmouseout="this.style.background='transparent'; this.style.paddingLeft='10px'; this.querySelector('.song-icon').style.opacity='0.6'; this.querySelector('.song-icon').style.transform='scale(1)'">
+                    <span class="song-number" style="
+                        color: var(--text-muted); 
+                        min-width: 28px; 
+                        font-size: 13px;
+                        font-weight: 600;
+                        text-align: center;
+                    ">${index + 1}</span>
+                    <span class="song-icon" style="
+                        font-size: 16px;
+                        opacity: 0.6;
+                        transition: all 0.2s;
+                    ">🎵</span>
+                    <span class="song-title" style="
+                        flex: 1; 
+                        white-space: nowrap; 
+                        overflow: hidden; 
+                        text-overflow: ellipsis;
+                        color: var(--text-primary);
+                        font-size: 14px;
+                        font-weight: 500;
+                    ">${song.title}</span>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+}
+// Ouvrir la modale artiste (pleine page)
+// function openArtistModal(artist) {
+//     // Créer la modale
+//     const modal = document.createElement('div');
+//     modal.id = 'artist-modal';
+//     modal.style.cssText = `
+//         position: fixed;
+//         top: 0;
+//         left: 0;
+//         width: 100%;
+//         height: 100%;
+//         background: var(--bg-primary);
+//         z-index: 10000;
+//         overflow-y: auto;
+//         animation: fadeIn 0.2s ease;
+//     `;
+    
+//     // Filtrer les chansons de cet artiste
+//     const artistSongs = libraryData.songs.filter(s => s.artist === artist);
+    
+//     // Organiser par album
+//     const albums = {};
+//     artistSongs.forEach(song => {
+//         if (!albums[song.album]) {
+//             albums[song.album] = [];
+//         }
+//         albums[song.album].push(song);
+//     });
+    
+//     // Construire le HTML
+//     let html = `
+//         <div style="max-width: 1400px; margin: 0 auto; padding: 48px 40px;">
+//             <!-- Header -->
+//             <div style="
+//                 display: flex; 
+//                 justify-content: space-between; 
+//                 align-items: center; 
+//                 margin-bottom: 48px;
+//                 padding-bottom: 24px;
+//                 border-bottom: 1px solid var(--border);
+//             ">
+//                 <div>
+//                     <h1 style="
+//                         font-size: 36px; 
+//                         margin: 0 0 8px 0;
+//                         font-weight: 700;
+//                         letter-spacing: -0.02em;
+//                     ">🎤 ${artist}</h1>
+//                     <p style="
+//                         font-size: 15px;
+//                         color: var(--text-secondary);
+//                         margin: 0;
+//                     ">${Object.keys(albums).length} album${Object.keys(albums).length > 1 ? 's' : ''}</p>
+//                 </div>
+//                 <button onclick="closeArtistModal()" style="
+//                     width: 44px;
+//                     height: 44px;
+//                     background: var(--bg-card);
+//                     border: 1px solid var(--border);
+//                     border-radius: 50%;
+//                     color: var(--text-primary);
+//                     font-size: 20px;
+//                     cursor: pointer;
+//                     display: flex;
+//                     align-items: center;
+//                     justify-content: center;
+//                     transition: all 0.2s;
+//                 " onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--border-hover)'" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border)'">
+//                     ✕
+//                 </button>
+//             </div>
+            
+//             <!-- Albums en 2 colonnes -->
+//             <div style="
+//                 display: grid !important; 
+//                 grid-template-columns: 1fr 1fr !important; 
+//                 gap: 24px;
+//                 width: 100%;
+//             ">
+//     `;
+    
+//     Object.keys(albums).sort().forEach(album => {
+//         const songs = albums[album];
+//         // Chercher la pochette dans différents champs possibles
+//         const albumArt = songs[0].album_art || songs[0].albumArt || songs[0].cover || songs[0].artwork || null;
+        
+//         html += `
+//             <div class="album-card-modal" style="
+//                 background: var(--bg-card);
+//                 border: 1px solid var(--border);
+//                 border-radius: var(--radius-lg);
+//                 overflow: hidden;
+//                 transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+//                 position: relative;
+//             ">
+//                 <!-- Pochette Album (centrée, style moderne) -->
+//                 <div style="
+//                     position: relative;
+//                     padding: 32px;
+//                     background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+//                     display: flex;
+//                     justify-content: center;
+//                     align-items: center;
+//                     min-height: 240px;
+//                 ">
+//                     <div class="album-cover-wrapper" style="
+//                         position: relative;
+//                         width: 180px;
+//                         height: 180px;
+//                         border-radius: var(--radius-md);
+//                         overflow: hidden;
+//                         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+//                         transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+//                     ">
+//                         ${albumArt ? `
+//                             <img src="${albumArt}" style="
+//                                 width: 100%;
+//                                 height: 100%;
+//                                 object-fit: cover;
+//                             ">
+//                         ` : `
+//                             <div style="
+//                                 width: 100%;
+//                                 height: 100%;
+//                                 background: linear-gradient(135deg, rgba(138, 180, 248, 0.3) 0%, rgba(174, 203, 250, 0.15) 100%);
+//                                 display: flex;
+//                                 align-items: center;
+//                                 justify-content: center;
+//                                 font-size: 64px;
+//                                 position: relative;
+//                             ">
+//                                 <span style="opacity: 0.5;">💿</span>
+//                             </div>
+//                         `}
+//                     </div>
+//                 </div>
+                
+//                 <!-- Info Album -->
+//                 <div style="padding: 28px 32px;">
+//                     <div style="margin-bottom: 24px;">
+//                         <h2 style="
+//                             font-size: 22px; 
+//                             margin: 0 0 8px 0; 
+//                             font-weight: 700;
+//                             letter-spacing: -0.02em;
+//                             color: var(--text-primary);
+//                         ">${album}</h2>
+//                         <div style="display: flex; align-items: center; gap: 12px;">
+//                             <span style="
+//                                 background: rgba(99, 102, 241, 0.15);
+//                                 color: var(--accent);
+//                                 padding: 4px 12px;
+//                                 border-radius: 20px;
+//                                 font-weight: 600;
+//                                 font-size: 12px;
+//                             ">${songs.length} chanson${songs.length > 1 ? 's' : ''}</span>
+//                         </div>
+//                     </div>
+                    
+//                     <!-- Chansons -->
+//                     <div style="display: flex; flex-direction: column; gap: 2px;">
+//         `;
+        
+//         songs.forEach((song, index) => {
+//             html += `
+//                 <div class="song-item-modal" style="
+//                     display: flex;
+//                     align-items: center;
+//                     gap: 14px;
+//                     padding: 12px 10px;
+//                     background: transparent;
+//                     border-radius: var(--radius-sm);
+//                     transition: all 0.2s;
+//                     cursor: pointer;
+//                     position: relative;
+//                     overflow: hidden;
+//                 " onmouseover="this.style.background='var(--bg-hover)'; this.style.paddingLeft='18px'" onmouseout="this.style.background='transparent'; this.style.paddingLeft='10px'">
+//                     <span style="
+//                         color: var(--text-muted); 
+//                         min-width: 28px; 
+//                         font-size: 13px;
+//                         font-weight: 600;
+//                         text-align: center;
+//                     ">${index + 1}</span>
+//                     <span style="
+//                         font-size: 16px;
+//                         opacity: 0.6;
+//                         transition: all 0.2s;
+//                     ">🎵</span>
+//                     <span style="
+//                         flex: 1; 
+//                         white-space: nowrap; 
+//                         overflow: hidden; 
+//                         text-overflow: ellipsis;
+//                         color: var(--text-primary);
+//                         font-size: 14px;
+//                         font-weight: 500;
+//                     ">${song.title}</span>
+//                 </div>
+//             `;
+//         });
+        
+//         html += `
+//                 </div>
+//             </div>
+//         `;
+//     });
+    
+//     html += `
+//             </div>
+//         </div>
+//     `;
+    
+//     modal.innerHTML = html;
+// }
+
+// Fermer la modale artiste
+function closeArtistModal() {
+    // Réactiver le scroll de la page principale
+    document.body.style.overflow = 'auto';
+    
+    const modal = document.getElementById('artist-modal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.2s ease';
+        setTimeout(() => {
+            modal.remove();
+        }, 200);
+    }
+}
+
+// Render List View (arbre actuel)
+function renderListView() {
     if (!libraryData || !libraryData.artists) {
         document.getElementById('library-tree').innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">Aucune musique</div>';
         return;
@@ -138,12 +725,24 @@ function renderLibraryTree() {
         Object.keys(tree[artist]).sort().forEach(album => {
             const albumId = `album-${artist}-${album}`.replace(/[^a-zA-Z0-9]/g, '-');
             const isAlbumExpanded = expandedItems.has(albumId);
+            const songs = tree[artist][album];
+            
+            // URL de la pochette
+            const coverUrl = `${API_BASE}/api/album-cover/${encodeURIComponent(artist)}/${encodeURIComponent(album)}`;
             
             html += `
                 <div class="tree-item">
-                    <div class="tree-line" onclick="toggleItem('${albumId}')" style="padding-left: 20px;">
-                        <span class="tree-icon">${isAlbumExpanded ? '💿' : '💿'}</span>
-                        <span class="tree-label">${album}</span>
+                    <div class="tree-line album-line" 
+                         onclick="toggleItem('${albumId}')" 
+                         data-artist="${artist}" 
+                         data-album="${album}"
+                         style="padding-left: 20px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <img src="${coverUrl}" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                             style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover; flex-shrink: 0;"
+                             alt="Album cover">
+                        <span class="tree-icon" style="display: none;">💿</span>
+                        <span class="tree-label" style="flex: 1;">${album}</span>
                         <span class="tree-count">${tree[artist][album].length} chanson(s)</span>
                     </div>
                     <div id="${albumId}" class="tree-children" style="display: ${isAlbumExpanded ? 'block' : 'none'};">
@@ -197,11 +796,28 @@ function renderLibraryTree() {
                         ${destinationArrow}
                     `;
                 } else {
-                    // Chanson normale (sans feat)
+                    // Chanson normale (sans feat) - DRAGGABLE
                     html += `
-                        <div class="tree-line song-line" style="padding-left: 40px;">
+                        <div class="tree-line song-line" 
+                             draggable="true" 
+                             data-song-path="${song.path}"
+                             data-song-title="${song.title}"
+                             style="padding-left: 40px; display: flex; align-items: center; gap: 8px;">
                             <span class="tree-icon" style="margin-left: 28px;">🎵</span>
-                            <span class="tree-label">${song.title}</span>
+                            <span class="tree-label" style="flex: 1;">${song.title}</span>
+                            <button class="rename-btn" 
+                                    onclick="event.stopPropagation(); renameSongFromButton('${song.path}', '${song.title.replace(/'/g, "\\'")}');"
+                                    style="
+                                        opacity: 0;
+                                        padding: 4px 8px;
+                                        background: rgba(102, 126, 234, 0.1);
+                                        border: 1px solid rgba(102, 126, 234, 0.3);
+                                        border-radius: 6px;
+                                        color: #667eea;
+                                        font-size: 12px;
+                                        cursor: pointer;
+                                        transition: all 0.2s;
+                                    ">✏️</button>
                         </div>
                     `;
                 }
@@ -233,6 +849,11 @@ function renderLibraryTree() {
     });
     
     document.getElementById('library-tree').innerHTML = html;
+    
+    // Initialiser le drag & drop après le rendu
+    if (typeof initDragAndDrop === 'function') {
+        initDragAndDrop();
+    }
 }
 
 // Toggle expand/collapse
@@ -262,17 +883,40 @@ function collapseAll() {
     renderLibraryTree();
 }
 
-// Filtrer la bibliothèque
+// Normaliser le texte (enlever accents, minuscules)
+function normalizeText(text) {
+    return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, ''); // Enlever les accents
+}
+
+// Filtrer la bibliothèque (recherche intelligente)
 function filterLibrary(query) {
-    if (!query) {
-        renderLibraryTree();
+    if (!query || query.trim() === '') {
+        // Réafficher tout
+        document.querySelectorAll('.tree-item, .tree-line').forEach(el => {
+            el.style.display = '';
+        });
         return;
     }
     
-    query = query.toLowerCase();
-    document.querySelectorAll('.tree-line').forEach(line => {
-        const text = line.textContent.toLowerCase();
-        line.style.display = text.includes(query) ? 'flex' : 'none';
+    const normalizedQuery = normalizeText(query.trim());
+    
+    // Filtrer les éléments
+    document.querySelectorAll('.tree-item').forEach(item => {
+        const text = normalizeText(item.textContent);
+        const matches = text.includes(normalizedQuery);
+        item.style.display = matches ? '' : 'none';
+        
+        // Si un élément correspond, montrer aussi ses parents
+        if (matches) {
+            let parent = item.parentElement;
+            while (parent && parent.classList.contains('tree-children')) {
+                parent.style.display = 'block';
+                parent = parent.parentElement;
+            }
+        }
     });
 }
 
@@ -308,9 +952,75 @@ function showSongInfo(path) {
     alert(`🎵 ${song.title}\n🎤 ${song.artist}\n💿 ${song.album}\n📁 ${song.path}`);
 }
 
+// Renommer depuis le bouton
+async function renameSongFromButton(songPath, currentTitle) {
+    // Utiliser la même logique que le double-click
+    const newTitle = await showRenameDialog(0, 0, currentTitle);
+    
+    if (!newTitle || newTitle === currentTitle) {
+        return;
+    }
+    
+    console.log(`✏️ Rename: "${currentTitle}" → "${newTitle}"`);
+    
+    // Appeler l'API
+    try {
+        const response = await fetch(`${API_BASE}/api/rename-song`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                song_path: songPath,
+                new_title: newTitle
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log(`✅ Chanson renommée: "${newTitle}"`);
+            await loadLibrary();
+        } else {
+            console.error(`❌ Erreur: ${result.error}`);
+            showNotification(`❌ ${result.error}`, 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Erreur:', error);
+        showNotification('❌ Erreur lors du renommage', 'error');
+    }
+}
+
 // Variables pour les suggestions
 let suggestions = [];
 let selectedSuggestions = new Set();
+
+// View mode
+let viewMode = 'grid'; // 'grid' ou 'list'
+
+function setViewMode(mode) {
+    viewMode = mode;
+    
+    // Update buttons
+    const gridBtn = document.getElementById('grid-view-btn');
+    const listBtn = document.getElementById('list-view-btn');
+    
+    if (mode === 'grid') {
+        gridBtn.style.background = 'var(--accent)';
+        gridBtn.style.color = 'white';
+        listBtn.style.background = 'transparent';
+        listBtn.style.color = 'var(--text-secondary)';
+    } else {
+        listBtn.style.background = 'var(--accent)';
+        listBtn.style.color = 'white';
+        gridBtn.style.background = 'transparent';
+        gridBtn.style.color = 'var(--text-secondary)';
+    }
+    
+    // Re-render
+    renderLibraryTree();
+}
 
 // Analyser et proposer des modifications
 function analyzeSuggestions() {

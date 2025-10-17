@@ -300,6 +300,212 @@ def get_library():
     return jsonify(structure)
 
 
+@app.route('/api/album-cover/<path:artist>/<path:album>')
+def get_album_cover(artist, album):
+    """Retourne la pochette d'un album"""
+    try:
+        # Chercher le premier fichier MP3 dans l'album
+        album_dir = organizer.music_dir / artist / album
+        
+        if not album_dir.exists():
+            return '', 404
+        
+        mp3_files = list(album_dir.glob('*.mp3'))
+        
+        if not mp3_files:
+            return '', 404
+        
+        # Extraire la pochette du premier fichier
+        from mutagen.mp3 import MP3
+        from mutagen.id3 import ID3, APIC
+        
+        audio = MP3(mp3_files[0], ID3=ID3)
+        
+        # Chercher la pochette
+        for tag in audio.tags.values():
+            if isinstance(tag, APIC):
+                return tag.data, 200, {'Content-Type': tag.mime}
+        
+        return '', 404
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération pochette: {e}")
+        return '', 404
+
+
+@app.route('/api/cover/<path:filename>')
+def get_cover(filename):
+    """Retourne la pochette d'un album par nom de fichier"""
+    try:
+        # Extraire artiste et album du filename
+        # Format: Artist_Album.jpg
+        parts = filename.replace('.jpg', '').split('_', 1)
+        if len(parts) != 2:
+            return '', 404
+        
+        artist, album = parts
+        
+        # Chercher le premier fichier MP3 dans l'album
+        album_dir = organizer.music_dir / artist / album
+        
+        if not album_dir.exists():
+            return '', 404
+        
+        mp3_files = list(album_dir.glob('*.mp3'))
+        
+        if not mp3_files:
+            return '', 404
+        
+        # Extraire la pochette du premier fichier
+        from mutagen.mp3 import MP3
+        from mutagen.id3 import ID3, APIC
+        
+        audio = MP3(mp3_files[0], ID3=ID3)
+        
+        # Chercher la pochette
+        if audio.tags:
+            for tag in audio.tags.values():
+                if isinstance(tag, APIC):
+                    return tag.data, 200, {'Content-Type': tag.mime}
+        
+        return '', 404
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération pochette: {e}")
+        return '', 404
+
+
+@app.route('/api/extract-metadata', methods=['POST'])
+def extract_metadata():
+    """Extract metadata from YouTube URL using yt-dlp"""
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL manquante'})
+        
+        add_log('INFO', f'Extraction des métadonnées: {url}')
+        
+        # Extract metadata using yt-dlp
+        result = downloader.extract_metadata(url)
+        
+        if result['success']:
+            add_log('SUCCESS', f'✅ Métadonnées extraites', result['metadata'])
+            return jsonify(result)
+        else:
+            add_log('ERROR', f'❌ Échec extraction: {result.get("error")}')
+            return jsonify(result)
+            
+    except Exception as e:
+        add_log('ERROR', f'Erreur extraction métadonnées: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/move-song', methods=['POST'])
+def move_song():
+    """Déplace une chanson vers un autre artiste/album avec drag & drop"""
+    try:
+        data = request.get_json()
+        song_path = data.get('song_path')  # Chemin relatif
+        target_artist = data.get('target_artist')
+        target_album = data.get('target_album')
+        
+        if not all([song_path, target_artist, target_album]):
+            return jsonify({'success': False, 'error': 'Paramètres manquants'})
+        
+        add_log('INFO', f'Déplacement: {song_path} → {target_artist}/{target_album}')
+        
+        # Construire les chemins
+        source_file = organizer.music_dir / song_path
+        
+        if not source_file.exists():
+            return jsonify({'success': False, 'error': 'Fichier introuvable'})
+        
+        # Créer le dossier de destination
+        target_dir = organizer.music_dir / target_artist / target_album
+        target_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Déplacer le fichier
+        target_file = target_dir / source_file.name
+        
+        # Gérer les doublons
+        if target_file.exists():
+            counter = 1
+            while target_file.exists():
+                target_file = target_dir / f"{source_file.stem} ({counter}){source_file.suffix}"
+                counter += 1
+        
+        import shutil
+        shutil.move(str(source_file), str(target_file))
+        
+        # Nettoyer les dossiers vides
+        organizer._cleanup_empty_dirs(source_file.parent)
+        
+        add_log('SUCCESS', f'✅ Déplacé: {source_file.name} → {target_artist}/{target_album}')
+        
+        return jsonify({
+            'success': True,
+            'new_path': str(target_file.relative_to(organizer.music_dir))
+        })
+        
+    except Exception as e:
+        add_log('ERROR', f'Erreur déplacement: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/rename-song', methods=['POST'])
+def rename_song():
+    """Renomme une chanson (fichier + métadonnées ID3)"""
+    try:
+        data = request.get_json()
+        song_path = data.get('song_path')
+        new_title = data.get('new_title')
+        
+        if not all([song_path, new_title]):
+            return jsonify({'success': False, 'error': 'Paramètres manquants'})
+        
+        add_log('INFO', f'Renommage: {song_path} → {new_title}')
+        
+        # Construire le chemin
+        source_file = organizer.music_dir / song_path
+        
+        if not source_file.exists():
+            return jsonify({'success': False, 'error': 'Fichier introuvable'})
+        
+        # Nettoyer le nouveau titre
+        clean_title = organizer._clean_filename(new_title)
+        new_filename = f"{clean_title}.mp3"
+        new_path = source_file.parent / new_filename
+        
+        # Vérifier si le fichier existe déjà
+        if new_path.exists() and new_path != source_file:
+            return jsonify({'success': False, 'error': 'Un fichier avec ce nom existe déjà'})
+        
+        # Mettre à jour les métadonnées ID3
+        from mutagen.mp3 import MP3
+        from mutagen.id3 import ID3, TIT2
+        
+        audio = MP3(source_file, ID3=ID3)
+        audio['TIT2'] = TIT2(encoding=3, text=new_title)
+        audio.save()
+        
+        # Renommer le fichier
+        import shutil
+        shutil.move(str(source_file), str(new_path))
+        
+        add_log('SUCCESS', f'✅ Renommé: {source_file.name} → {new_filename}')
+        
+        return jsonify({
+            'success': True,
+            'new_path': str(new_path.relative_to(organizer.music_dir))
+        })
+        
+    except Exception as e:
+        add_log('ERROR', f'Erreur renommage: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route('/api/apply-corrections', methods=['POST'])
 def apply_corrections():
     """Applique les corrections de feat (déplace et renomme les fichiers)"""

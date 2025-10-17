@@ -80,6 +80,69 @@ class YouTubeDownloader:
         # Détecter FFmpeg
         self.ffmpeg_location = self._find_ffmpeg()
     
+    def extract_metadata(self, url):
+        """
+        Extract metadata from YouTube URL using yt-dlp (NO download)
+        
+        Args:
+            url (str): YouTube or YouTube Music URL
+            
+        Returns:
+            dict: {success, metadata, error}
+        """
+        try:
+            print(f"\n🔍 Extracting metadata from: {url}")
+            
+            # Convert YouTube Music URL to regular YouTube
+            if 'music.youtube.com' in url:
+                import re
+                video_id_match = re.search(r'[?&]v=([^&]+)', url)
+                if video_id_match:
+                    video_id = video_id_match.group(1)
+                    url = f'https://www.youtube.com/watch?v={video_id}'
+            
+            # yt-dlp options for metadata extraction only
+            ydl_opts = {
+                'skip_download': True,  # Don't download
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                
+                # Extract metadata with fallbacks
+                metadata = {
+                    'title': info.get('track') or info.get('title', 'Unknown Title'),
+                    'artist': info.get('artist') or info.get('uploader', 'Unknown Artist'),
+                    'album': info.get('album') or info.get('playlist_title') or 'Unknown Album',
+                    'year': str(info.get('release_year') or info.get('upload_date', '')[:4] or ''),
+                    'track': info.get('track_number', ''),
+                    'duration': info.get('duration', 0),
+                    'thumbnail': info.get('thumbnail', ''),
+                    'description': info.get('description', ''),
+                    'uploader': info.get('uploader', ''),
+                }
+                
+                print(f"   ✅ Metadata extracted:")
+                print(f"      🎵 Title: {metadata['title']}")
+                print(f"      🎤 Artist: {metadata['artist']}")
+                print(f"      💿 Album: {metadata['album']}")
+                print(f"      📅 Year: {metadata['year']}")
+                
+                return {
+                    'success': True,
+                    'metadata': metadata
+                }
+                
+        except Exception as e:
+            print(f"   ❌ Error extracting metadata: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
     def download(self, url, metadata):
         """
         Télécharge une vidéo YouTube en MP3

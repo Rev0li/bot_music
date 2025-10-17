@@ -6,17 +6,25 @@
 }
 
 :root {
-    --bg-primary: #0a0a0a;
+    /* Palette harmonieuse */
+    --bg-primary: #0f0f0f;
     --bg-secondary: #1a1a1a;
-    --bg-card: #222222;
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0a0;
-    --accent: #667eea;
-    --accent-hover: #5568d3;
-    --success: #34c759;
-    --warning: #ff9500;
-    --border: #333333;
-    --shadow: rgba(0, 0, 0, 0.3);
+    --bg-card: rgba(255, 255, 255, 0.04);
+    --bg-hover: rgba(255, 255, 255, 0.08);
+    --text-primary: #f1f3f4;
+    --text-secondary: #9aa0a6;
+    --text-muted: #5f6368;
+    --accent: #8ab4f8;
+    --accent-hover: #aecbfa;
+    --accent-subtle: rgba(138, 180, 248, 0.1);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.16);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
 }
 
 body {
@@ -25,7 +33,10 @@ body {
     color: var(--text-primary);
     line-height: 1.6;
     min-height: 100vh;
+    margin: 0;
     padding: 20px;
+    overflow-y: auto; /* Homepage longue avec scroll */
+    box-sizing: border-box;
 }
 
 .container {
@@ -83,7 +94,155 @@ header {
     50% { opacity: 0.5; }
 }
 
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Album Cards Modal */
+.album-card-modal:hover {
+    border-color: var(--accent) !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
+    transform: translateY(-4px);
+}
+
+.album-card-modal:hover .album-cover-wrapper {
+    transform: scale(1.05) rotate(2deg);
+}
+
+/* Song Items Modal */
+.song-item-modal::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 3px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transition: transform 0.2s;
+}
+
+.song-item-modal:hover::before {
+    transform: scaleY(1);
+}
+
 /* Stats Grid */
+/* Drag & Drop - Style Google Sobre */
+.song-line[draggable="true"] {
+    cursor: grab;
+    transition: all 0.2s ease;
+    position: relative;
+    padding: 10px 16px !important;
+    margin: 2px 0;
+    border-radius: 8px;
+}
+
+.song-line[draggable="true"]:active {
+    cursor: grabbing;
+    transform: scale(0.98);
+}
+
+.song-line[draggable="true"]:hover {
+    background: var(--bg-hover);
+    border-radius: 8px;
+}
+
+.song-line[draggable="true"]:hover .rename-btn {
+    opacity: 1 !important;
+}
+
+.rename-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rename-btn:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.album-line {
+    transition: all 0.2s ease;
+    padding: 12px 16px !important;
+    margin: 4px 0;
+    border-radius: 8px;
+}
+
+.album-line:hover {
+    background: var(--bg-hover);
+}
+
+/* Quand on survole une chanson, montrer le hover sur l'album parent */
+.tree-item:has(.song-line:hover) > .album-line {
+    background: var(--bg-hover);
+    border-left: 3px solid var(--accent);
+}
+
+/* Zone de drop : Toute la zone de l'album devient droppable */
+.tree-item.drag-over {
+    background: var(--bg-card);
+    border-radius: 8px;
+    border: 2px dashed var(--accent);
+    padding: 4px;
+    margin: 4px 0;
+}
+
+.tree-item.drag-over .album-line {
+    background: var(--bg-hover);
+    border-left: 3px solid var(--accent);
+}
+
+.tree-item.drag-over .song-line {
+    background: var(--bg-card);
+    border-radius: 6px;
+}
+
+/* Artistes */
+.tree-line {
+    padding: 10px 16px;
+    margin: 2px 0;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+}
+
+.tree-line:hover {
+    background: var(--bg-hover);
+}
+
+/* Icônes */
+.tree-icon {
+    font-size: 20px !important;
+    margin-right: 12px;
+    opacity: 0.9;
+}
+
+/* Labels */
+.tree-label {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-primary);
+}
+
+/* Compteurs */
+.tree-count {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-left: auto;
+}
+
 /* Statistiques compactes */
 .stat-compact {
     background: var(--bg-card);

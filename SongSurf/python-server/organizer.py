@@ -27,9 +27,70 @@ class MusicOrganizer:
         self.music_dir = Path(music_dir)
         self.music_dir.mkdir(exist_ok=True, parents=True)
     
+    def detect_featuring(self, title, artist):
+        """
+        Detect featuring artists in title and return cleaned data
+        
+        Returns:
+            dict: {
+                'main_artist': str,
+                'feat_artists': list,
+                'clean_title': str,
+                'has_feat': bool
+            }
+        """
+        import re
+        
+        # Patterns to detect featuring
+        feat_patterns = [
+            r'\(feat\.?\s+([^)]+)\)',
+            r'\(ft\.?\s+([^)]+)\)',
+            r'\(featuring\s+([^)]+)\)',
+            r'\[feat\.?\s+([^\]]+)\]',
+            r'\[ft\.?\s+([^\]]+)\]',
+            r'feat\.?\s+([^-\(\[]+)',
+            r'ft\.?\s+([^-\(\[]+)',
+        ]
+        
+        feat_artists = []
+        clean_title = title
+        
+        # Check title for featuring
+        for pattern in feat_patterns:
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                feat_artist = match.group(1).strip()
+                # Clean up multiple artists (separated by &, and, ,)
+                feat_list = re.split(r'\s*(?:&|and|,)\s*', feat_artist)
+                feat_artists.extend([a.strip() for a in feat_list if a.strip()])
+                # Remove feat from title
+                clean_title = re.sub(pattern, '', clean_title, flags=re.IGNORECASE).strip()
+        
+        # Check artist field for multiple artists
+        if ' & ' in artist or ' and ' in artist or ', ' in artist or ' et ' in artist:
+            # Split by common separators
+            artist_list = re.split(r'\s*(?:&|and|et|,)\s*', artist, flags=re.IGNORECASE)
+            main_artist = artist_list[0].strip()
+            # Others are featuring
+            feat_artists.extend([a.strip() for a in artist_list[1:] if a.strip()])
+            
+            print(f"   🔍 Multiple artists detected: {artist}")
+            print(f"      → Main: {main_artist}")
+            print(f"      → Feat: {', '.join(artist_list[1:])}")
+        else:
+            main_artist = artist
+        
+        return {
+            'main_artist': main_artist,
+            'feat_artists': list(set(feat_artists)),  # Remove duplicates
+            'clean_title': clean_title,
+            'has_feat': len(feat_artists) > 0
+        }
+    
     def organize(self, file_path, metadata):
         """
         Organise un fichier MP3 dans la structure Artist/Album/Title.mp3
+        Auto-détecte les featuring et organise correctement
         
         Args:
             file_path (str): Chemin du fichier MP3 temporaire
@@ -47,17 +108,31 @@ class MusicOrganizer:
             print(f"\n📁 Organisation du fichier: {file_path.name}")
             
             # Extraire les métadonnées
-            artist = metadata.get('artist', 'Unknown Artist')
+            raw_artist = metadata.get('artist', 'Unknown Artist')
             album = metadata.get('album', 'Unknown Album')
-            title = metadata.get('title', 'Unknown Title')
+            raw_title = metadata.get('title', 'Unknown Title')
             year = metadata.get('year', '')
+            
+            # Détecter les featuring
+            feat_info = self.detect_featuring(raw_title, raw_artist)
+            
+            # Utiliser l'artiste principal pour l'organisation
+            artist = feat_info['main_artist']
+            title = feat_info['clean_title']
+            
+            # Si featuring détecté, ajouter au titre
+            if feat_info['has_feat']:
+                feat_str = ', '.join(feat_info['feat_artists'])
+                title = f"{title} (feat. {feat_str})"
+                print(f"   🎭 Featuring détecté: {feat_str}")
+                print(f"   ✅ Organisation sous: {artist}")
             
             # Nettoyer les noms (caractères interdits)
             artist = self._clean_filename(artist)
             album = self._clean_filename(album)
             title = self._clean_filename(title)
             
-            print(f"   🎤 Artiste: {artist}")
+            print(f"   🎤 Artiste principal: {artist}")
             print(f"   💿 Album: {album}")
             print(f"   🎵 Titre: {title}")
             print(f"   📅 Année: {year}")
@@ -85,9 +160,15 @@ class MusicOrganizer:
             # Chercher la pochette (image téléchargée par yt-dlp)
             thumbnail_path = self._find_thumbnail(file_path)
             
-            # Mettre à jour les tags ID3
+            # Mettre à jour les tags ID3 avec les métadonnées corrigées
             print(f"   🏷️ Mise à jour des tags ID3...")
-            self._update_tags(final_path, metadata, thumbnail_path)
+            corrected_metadata = {
+                'artist': artist,  # Artiste principal
+                'album': album,
+                'title': title,    # Titre avec feat si nécessaire
+                'year': year
+            }
+            self._update_tags(final_path, corrected_metadata, thumbnail_path)
             
             # Supprimer le fichier temporaire
             file_path.unlink()
@@ -414,13 +495,29 @@ class MusicOrganizer:
                     
                     artist_albums.append(album_name)
                     
+                    # Extraire la pochette du premier MP3 de l'album
+                    album_art_url = None
+                    if songs:
+                        try:
+                            audio = MP3(songs[0], ID3=ID3)
+                            if audio.tags:
+                                for tag in audio.tags.values():
+                                    if isinstance(tag, APIC):
+                                        # Créer un chemin pour la pochette
+                                        cover_filename = f"{artist_name}_{album_name}.jpg".replace('/', '_').replace('\\', '_')
+                                        album_art_url = f"/api/cover/{cover_filename}"
+                                        break
+                        except:
+                            pass
+                    
                     # Ajouter les chansons
                     for song_path in songs:
                         structure['songs'].append({
                             'title': song_path.stem,
                             'artist': artist_name,
                             'album': album_name,
-                            'path': str(song_path.relative_to(self.music_dir))
+                            'path': str(song_path.relative_to(self.music_dir)),
+                            'album_art': album_art_url
                         })
                 
                 # Ajouter l'artiste

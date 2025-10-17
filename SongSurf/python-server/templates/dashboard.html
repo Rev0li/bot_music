@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SongSurf Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <script src="{{ url_for('static', filename='drag-drop.js') }}"></script>
 </head>
 <body>
     <div class="container">
@@ -16,23 +17,7 @@
                     <span style="font-size: 32px;">🎵</span>
                     SongSurf
                 </h1>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <div class="status-indicator" id="server-status">
-                        <span class="dot"></span>
-                        <span>En ligne</span>
-                    </div>
-                    <button onclick="window.location.href='/logs'" style="
-                        padding: 8px 16px;
-                        background: var(--bg-card);
-                        color: var(--text-primary);
-                        border: 1px solid var(--border);
-                        border-radius: 8px;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    ">📝 Logs</button>
-                </div>
+                <!-- Espace vide (Logs déplacé en bas) -->
             </div>
             
             <!-- Ligne 2: Statistiques compactes -->
@@ -58,70 +43,70 @@
                         <div class="stat-compact-label">Chansons</div>
                     </div>
                 </div>
-                <div class="stat-compact stat-compact-warning">
+                <!-- <div class="stat-compact stat-compact-warning">
                     <div class="stat-compact-icon">⚠️</div>
                     <div class="stat-compact-content">
                         <div class="stat-compact-value" id="issues-count">-</div>
                         <div class="stat-compact-label">À corriger</div>
                     </div>
-                </div>
+                </div> -->
             </div>
         </header>
 
         <!-- Music Organizer -->
-        <section class="organizer-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <section class="organizer-section" style="display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                 <h2>🎼 Bibliothèque musicale</h2>
                 <div style="display: flex; gap: 12px; align-items: center;">
-                    <button onclick="expandAll()" class="action-btn">📂 Tout ouvrir</button>
-                    <button onclick="collapseAll()" class="action-btn">📁 Tout fermer</button>
                     <input type="text" id="search-input" placeholder="🔍 Rechercher..." style="
-                        padding: 8px 12px;
+                        padding: 10px 16px;
                         background: var(--bg-card);
                         border: 1px solid var(--border);
                         border-radius: 8px;
                         color: var(--text-primary);
-                        font-size: 13px;
-                        width: 200px;
+                        font-size: 14px;
+                        width: 300px;
                     " oninput="filterLibrary(this.value)">
                     
-                    <!-- Info sélection et bouton -->
-                    <div id="selection-info" style="
-                        display: none;
-                        padding: 8px 16px;
-                        background: rgba(52, 199, 89, 0.1);
-                        border: 1px solid #34c759;
-                        border-radius: 8px;
-                        font-size: 13px;
-                        color: #34c759;
-                        font-weight: 600;
+                    <!-- View Toggle -->
+                    <div style="
+                        display: flex; 
+                        background: var(--bg-card); 
+                        border: 1px solid var(--border); 
+                        border-radius: var(--radius-sm); 
+                        padding: 4px;
+                        gap: 4px;
                     ">
-                        <span id="selected-count-header">0</span> sélectionnée(s)
+                        <button id="grid-view-btn" onclick="setViewMode('grid')" style="
+                            padding: 10px 14px;
+                            background: var(--accent);
+                            border: none;
+                            border-radius: 6px;
+                            color: white;
+                            cursor: pointer;
+                            font-size: 16px;
+                            transition: all 0.2s;
+                            font-weight: 500;
+                        ">⊞</button>
+                        <button id="list-view-btn" onclick="setViewMode('list')" style="
+                            padding: 10px 14px;
+                            background: transparent;
+                            border: none;
+                            border-radius: 6px;
+                            color: var(--text-secondary);
+                            cursor: pointer;
+                            font-size: 16px;
+                            transition: all 0.2s;
+                            font-weight: 500;
+                        ">☰</button>
                     </div>
-                    <button id="apply-btn-header" onclick="applySuggestions()" style="
-                        display: none;
-                        padding: 8px 20px;
-                        background: var(--accent);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                        🚀 Appliquer
-                    </button>
                 </div>
             </div>
             <div id="library-tree" style="
                 background: var(--bg-card);
                 border: 1px solid var(--border);
                 border-radius: 12px;
-                padding: 12px;
-                height: calc(100vh - 280px);
-                min-height: 400px;
-                overflow-y: auto;
+                padding: 24px;
                 font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
                 font-size: 13px;
                 position: relative;
@@ -133,9 +118,20 @@
 
 
         <!-- Footer -->
-        <footer style="text-align: center; padding: 20px; color: var(--text-secondary); font-size: 13px;">
-            <span>Dernière mise à jour: <span id="last-update">-</span></span>
-            <span style="margin: 0 16px;">•</span>
+        <footer style="display: flex; justify-content: space-between; align-items: center; padding: 20px; color: var(--text-secondary); font-size: 13px;">
+            <button onclick="window.location.href='/logs'" style="
+                padding: 8px 16px;
+                background: var(--bg-card);
+                color: var(--text-primary);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='var(--bg-card)'">
+                📝 Logs
+            </button>
             <a href="https://www.paypal.com/donate" target="_blank" style="
                 color: var(--accent);
                 text-decoration: none;
