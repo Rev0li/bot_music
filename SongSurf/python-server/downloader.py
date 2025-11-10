@@ -190,6 +190,7 @@ class YouTubeDownloader:
         # Chemins courants sur Windows
         common_paths = [
             Path.home() / 'ffmpeg' / 'bin',
+            Path.home() / '.local' / 'ffmpeg' / 'ffmpeg-7.0.2-amd64-static'  ,
             Path('C:/ffmpeg/bin'),
             Path('C:/Program Files/ffmpeg/bin'),
             Path.home() / 'Downloads' / 'ffmpeg-8.0' / 'bin',

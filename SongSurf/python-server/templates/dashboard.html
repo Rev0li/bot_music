@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SongSurf Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <script src="{{ url_for('static', filename='drag-drop.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header avec stats intégrées -->
+        <header style="margin-bottom: 24px;">
+            <!-- Ligne 1: Titre + Status + Logs -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h1 style="display: flex; align-items: center; gap: 12px; margin: 0;">
+                    <span style="font-size: 32px;">🎵</span>
+                    SongSurf
+                </h1>
+                <!-- Espace vide (Logs déplacé en bas) -->
+            </div>
+            
+            <!-- Ligne 2: Statistiques compactes -->
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <div class="stat-compact">
+                    <div class="stat-compact-icon">🎤</div>
+                    <div class="stat-compact-content">
+                        <div class="stat-compact-value" id="total-artists">-</div>
+                        <div class="stat-compact-label">Artistes</div>
+                    </div>
+                </div>
+                <div class="stat-compact">
+                    <div class="stat-compact-icon">💿</div>
+                    <div class="stat-compact-content">
+                        <div class="stat-compact-value" id="total-albums">-</div>
+                        <div class="stat-compact-label">Albums</div>
+                    </div>
+                </div>
+                <div class="stat-compact">
+                    <div class="stat-compact-icon">🎵</div>
+                    <div class="stat-compact-content">
+                        <div class="stat-compact-value" id="total-songs">-</div>
+                        <div class="stat-compact-label">Chansons</div>
+                    </div>
+                </div>
+                <!-- <div class="stat-compact stat-compact-warning">
+                    <div class="stat-compact-icon">⚠️</div>
+                    <div class="stat-compact-content">
+                        <div class="stat-compact-value" id="issues-count">-</div>
+                        <div class="stat-compact-label">À corriger</div>
+                    </div>
+                </div> -->
+            </div>
+        </header>
+
+        <!-- Music Organizer -->
+        <section class="organizer-section" style="display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                <h2>🎼 Bibliothèque musicale</h2>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <input type="text" id="search-input" placeholder="🔍 Rechercher..." style="
+                        padding: 10px 16px;
+                        background: var(--bg-card);
+                        border: 1px solid var(--border);
+                        border-radius: 8px;
+                        color: var(--text-primary);
+                        font-size: 14px;
+                        width: 300px;
+                    " oninput="filterLibrary(this.value)">
+                    
+                    <!-- View Toggle -->
+                    <div style="
+                        display: flex; 
+                        background: var(--bg-card); 
+                        border: 1px solid var(--border); 
+                        border-radius: var(--radius-sm); 
+                        padding: 4px;
+                        gap: 4px;
+                    ">
+                        <button id="grid-view-btn" onclick="setViewMode('grid')" style="
+                            padding: 10px 14px;
+                            background: var(--accent);
+                            border: none;
+                            border-radius: 6px;
+                            color: white;
+                            cursor: pointer;
+                            font-size: 16px;
+                            transition: all 0.2s;
+                            font-weight: 500;
+                        ">⊞</button>
+                        <button id="list-view-btn" onclick="setViewMode('list')" style="
+                            padding: 10px 14px;
+                            background: transparent;
+                            border: none;
+                            border-radius: 6px;
+                            color: var(--text-secondary);
+                            cursor: pointer;
+                            font-size: 16px;
+                            transition: all 0.2s;
+                            font-weight: 500;
+                        ">☰</button>
+                    </div>
+                </div>
+            </div>
+            <div id="library-tree" style="
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 24px;
+                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                font-size: 13px;
+                position: relative;
+            ">
+                <!-- Tree will be inserted here -->
+            </div>
+        </section>
+
+
+
+        <!-- Footer -->
+        <footer style="display: flex; justify-content: space-between; align-items: center; padding: 20px; color: var(--text-secondary); font-size: 13px;">
+            <button onclick="window.location.href='/logs'" style="
+                padding: 8px 16px;
+                background: var(--bg-card);
+                color: var(--text-primary);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='var(--bg-card)'">
+                📝 Logs
+            </button>
+            <a href="https://www.paypal.com/donate" target="_blank" style="
+                color: var(--accent);
+                text-decoration: none;
+                font-weight: 600;
+                transition: all 0.2s;
+            " onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                ❤️ Faire un don
+            </a>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>
