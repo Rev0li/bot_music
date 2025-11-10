@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE = 'http://localhost:5000';
+const API_BASE = 'http://localhost:8080';
 const REFRESH_INTERVAL = 2000; // 2 secondes
 
 let refreshTimer = null;
@@ -39,14 +39,21 @@ async function loadData() {
 
 // Mettre à jour les statistiques
 function updateStats(stats) {
-    document.getElementById('total-artists').textContent = stats.artists || 0;
-    document.getElementById('total-albums').textContent = stats.albums || 0;
-    document.getElementById('total-songs').textContent = stats.songs || 0;
+    const artistsEl = document.getElementById('total-artists');
+    const albumsEl = document.getElementById('total-albums');
+    const songsEl = document.getElementById('total-songs');
+    
+    if (artistsEl) artistsEl.textContent = stats.artists || 0;
+    if (albumsEl) albumsEl.textContent = stats.albums || 0;
+    if (songsEl) songsEl.textContent = stats.songs || 0;
 }
 
 // Mettre à jour le compteur de queue
 function updateQueueCount(count) {
-    document.getElementById('queue-count').textContent = count || 0;
+    const queueElement = document.getElementById('queue-count');
+    if (queueElement) {
+        queueElement.textContent = count || 0;
+    }
 }
 
 // Variables pour l'organisateur
@@ -1214,6 +1221,11 @@ function addToRecent(download) {
 function updateRecentList() {
     const recentList = document.getElementById('recent-list');
     
+    // Si l'élément n'existe pas, ne rien faire
+    if (!recentList) {
+        return;
+    }
+    
     if (recentDownloads.length === 0) {
         recentList.innerHTML = '<div class="empty-state">Aucun téléchargement récent</div>';
         return;
@@ -1252,13 +1264,16 @@ function formatTime(timestamp) {
 
 // Mettre à jour le timestamp
 function updateTimestamp() {
+    const lastUpdateEl = document.getElementById('last-update');
+    if (!lastUpdateEl) return;
+    
     const now = new Date();
     const timeString = now.toLocaleTimeString('fr-FR', { 
         hour: '2-digit', 
         minute: '2-digit',
         second: '2-digit'
     });
-    document.getElementById('last-update').textContent = timeString;
+    lastUpdateEl.textContent = timeString;
 }
 
 // Actualiser les données

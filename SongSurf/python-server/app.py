@@ -59,7 +59,7 @@ downloader = YouTubeDownloader(TEMP_DIR, MUSIC_DIR)
 organizer = MusicOrganizer(MUSIC_DIR)
 
 # Système de queue
-MAX_QUEUE_SIZE = 10
+MAX_QUEUE_SIZE = 50  # Augmenté pour supporter les gros albums
 download_queue = queue.Queue(maxsize=MAX_QUEUE_SIZE)
 queue_lock = threading.Lock()
 cancel_flag = threading.Event()
@@ -387,19 +387,108 @@ def extract_metadata():
         
         add_log('INFO', f'Extraction des métadonnées: {url}')
         
-        # Extract metadata using yt-dlp
-        result = downloader.extract_metadata(url)
-        
-        if result['success']:
-            add_log('SUCCESS', f'✅ Métadonnées extraites', result['metadata'])
+        # Détecter si c'est une playlist/album ou une musique simple
+        if '/playlist?list=' in url or '/browse/' in url:
+            # C'est une playlist ou un album
+            result = downloader.extract_playlist_metadata(url)
+            
+            if result['success']:
+                add_log('SUCCESS', f'✅ Playlist/Album extrait: {result["total_songs"]} chansons', {
+                    'title': result['title'],
+                    'artist': result['artist'],
+                    'total_songs': result['total_songs']
+                })
+            else:
+                add_log('ERROR', f'❌ Échec extraction playlist: {result.get("error")}')
+            
             return jsonify(result)
         else:
-            add_log('ERROR', f'❌ Échec extraction: {result.get("error")}')
-            return jsonify(result)
+            # C'est une musique simple
+            result = downloader.extract_metadata(url)
+            
+            if result['success']:
+                add_log('SUCCESS', f'✅ Métadonnées extraites', result['metadata'])
+                return jsonify(result)
+            else:
+                add_log('ERROR', f'❌ Échec extraction: {result.get("error")}')
+                return jsonify(result)
             
     except Exception as e:
         add_log('ERROR', f'Erreur extraction métadonnées: {str(e)}')
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/download-playlist', methods=['POST'])
+def download_playlist():
+    """
+    Télécharge un album ou une playlist complète
+    
+    Body:
+    {
+        "url": "https://music.youtube.com/playlist?list=...",
+        "playlist_metadata": {
+            "title": "Album Name",
+            "artist": "Artist Name",
+            "songs": [...]
+        }
+    }
+    """
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        playlist_metadata = data.get('playlist_metadata')
+        
+        if not url or not playlist_metadata:
+            return jsonify({'success': False, 'error': 'URL ou métadonnées manquantes'})
+        
+        total_songs = playlist_metadata.get('total_songs', 0)
+        
+        add_log('INFO', f'Téléchargement playlist: {playlist_metadata.get("title")} ({total_songs} chansons)')
+        
+        # Ajouter chaque chanson à la queue
+        songs = playlist_metadata.get('songs', [])
+        added = 0
+        
+        for song in songs:
+            if download_queue.full():
+                add_log('WARNING', f'Queue pleine, {len(songs) - added} chansons non ajoutées')
+                break
+            
+            # Métadonnées pour cette chanson
+            metadata = {
+                'artist': song.get('artist', playlist_metadata.get('artist', 'Unknown')),
+                'album': playlist_metadata.get('title', 'Unknown Album'),
+                'title': song['title'],
+                'year': playlist_metadata.get('year', '')
+            }
+            
+            download_queue.put({
+                'url': song['url'],
+                'metadata': metadata,
+                'added_at': datetime.now().isoformat(),
+                'playlist_info': {
+                    'playlist_title': playlist_metadata.get('title'),
+                    'song_index': added + 1,
+                    'total_songs': total_songs
+                }
+            })
+            
+            added += 1
+        
+        add_log('SUCCESS', f'✅ {added}/{total_songs} chansons ajoutées à la queue')
+        
+        return jsonify({
+            'success': True,
+            'message': f'{added} chansons ajoutées à la queue',
+            'added': added,
+            'total': total_songs,
+            'queue_size': download_queue.qsize(),
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        add_log('ERROR', f'Erreur téléchargement playlist: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/move-song', methods=['POST'])
@@ -805,7 +894,7 @@ if __name__ == '__main__':
     # Lancer le serveur
     app.run(
         host='localhost',
-        port=5000,
+        port=8080,
         debug=True,
         use_reloader=False  # Éviter le double démarrage en mode debug
     )
