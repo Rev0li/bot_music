@@ -1,16 +1,15 @@
 #!/bin/bash
 # ============================================
-# 🎵 GrabSong V3 - Script d'installation
+# 🎵 SongSurf - Installation Automatique
 # ============================================
 # 
-# Ce script configure automatiquement :
-#   - Environnement virtuel Python
-#   - Installation des dépendances
-#   - Vérification de FFmpeg
+# Ce script installe tout automatiquement :
+#   ✅ Environnement virtuel Python
+#   ✅ Toutes les dépendances
+#   ✅ FFmpeg (si nécessaire)
+#   ✅ Dossiers de travail
 #
-# Usage:
-#   chmod +x install.sh
-#   ./install.sh
+# Usage: ./install.sh
 # ============================================
 
 set -e  # Arrêter en cas d'erreur
@@ -55,7 +54,8 @@ print_info() {
 # DÉBUT DE L'INSTALLATION
 # ============================================
 
-print_header "🎵 GrabSong V3 - Installation"
+clear
+print_header "🎵 SongSurf - Installation Automatique"
 
 # ============================================
 # 1. Vérifier Python
@@ -66,10 +66,17 @@ print_step "Vérification de Python..."
 if ! command -v python3 &> /dev/null; then
     print_error "Python 3 n'est pas installé"
     echo ""
-    print_info "Installation sur WSL/Ubuntu:"
-    echo "  sudo apt update"
-    echo "  sudo apt install python3 python3-venv python3-pip"
-    exit 1
+    print_info "Installation automatique..."
+    
+    # Détecter l'OS
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt update && sudo apt install -y python3 python3-venv python3-pip
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install python3
+    else
+        print_error "OS non supporté. Installez Python 3 manuellement."
+        exit 1
+    fi
 fi
 
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
@@ -83,15 +90,23 @@ print_step "Vérification de FFmpeg..."
 
 if ! command -v ffmpeg &> /dev/null; then
     print_warning "FFmpeg n'est pas installé"
-    echo ""
-    print_info "FFmpeg est requis pour la conversion MP3"
-    print_info "Installation sur WSL/Ubuntu:"
-    echo "  sudo apt update"
-    echo "  sudo apt install ffmpeg"
-    echo ""
-    read -p "Voulez-vous continuer sans FFmpeg ? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    print_info "Installation automatique de FFmpeg..."
+    
+    # Détecter l'OS et installer FFmpeg
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt update && sudo apt install -y ffmpeg
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install ffmpeg
+    else
+        print_warning "Installation manuelle requise: sudo apt install ffmpeg"
+    fi
+    
+    # Vérifier à nouveau
+    if command -v ffmpeg &> /dev/null; then
+        print_success "FFmpeg installé avec succès"
+    else
+        print_error "Impossible d'installer FFmpeg automatiquement"
+        print_info "Installez-le manuellement: sudo apt install ffmpeg"
         exit 1
     fi
 else
@@ -106,22 +121,13 @@ fi
 print_step "Création de l'environnement virtuel..."
 
 if [ -d "venv" ]; then
-    print_warning "L'environnement virtuel existe déjà"
-    read -p "Voulez-vous le recréer ? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_step "Suppression de l'ancien environnement..."
-        rm -rf venv
-        print_step "Création d'un nouvel environnement..."
-        python3 -m venv venv
-        print_success "Environnement virtuel recréé"
-    else
-        print_info "Utilisation de l'environnement existant"
-    fi
-else
-    python3 -m venv venv
-    print_success "Environnement virtuel créé"
+    print_info "Environnement virtuel existant détecté"
+    print_step "Suppression et recréation..."
+    rm -rf venv
 fi
+
+python3 -m venv venv
+print_success "Environnement virtuel créé"
 
 # ============================================
 # 4. Activer l'environnement virtuel
@@ -228,22 +234,20 @@ echo ""
 print_header "✅ Installation terminée avec succès !"
 
 echo ""
-print_info "Pour démarrer le serveur:"
-echo -e "  ${GREEN}source venv/bin/activate${NC}"
-echo -e "  ${GREEN}python app.py${NC}"
+print_info "🚀 Pour démarrer SongSurf:"
+echo -e "  ${GREEN}./start.sh${NC}"
 echo ""
 
-print_info "Pour désactiver l'environnement virtuel:"
-echo -e "  ${GREEN}deactivate${NC}"
+print_info "📱 Ensuite:"
+echo "  1. Installez l'extension Chrome"
+echo "  2. Allez sur YouTube Music"
+echo "  3. Cliquez sur le widget SongSurf"
+echo "  4. Téléchargez vos musiques !"
 echo ""
 
-print_info "Endpoints disponibles:"
-echo "  GET  http://localhost:5000/ping"
-echo "  POST http://localhost:5000/download"
-echo "  GET  http://localhost:5000/status"
-echo "  POST http://localhost:5000/cleanup"
-echo "  GET  http://localhost:5000/stats"
+print_info "🌐 Dashboard:"
+echo "  http://localhost:8080"
 echo ""
 
-print_success "Prêt à télécharger de la musique ! 🎵"
+print_success "Installation terminée ! Prêt à télécharger de la musique ! 🎵"
 echo ""
