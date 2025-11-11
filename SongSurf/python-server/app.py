@@ -43,13 +43,20 @@ app = Flask(__name__)
 CORS(app)  # Permettre les requêtes depuis l'extension Chrome
 
 # Dossiers
-BASE_DIR = Path(__file__).parent.parent
-TEMP_DIR = BASE_DIR / "temp"
-MUSIC_DIR = BASE_DIR / "music"
+# Détecter si on est dans Docker (chemin /app) ou en local
+if Path(__file__).parent == Path('/app'):
+    # Docker: utiliser /data
+    TEMP_DIR = Path('/data/temp')
+    MUSIC_DIR = Path('/data/music')
+else:
+    # Local: utiliser ../temp et ../music
+    BASE_DIR = Path(__file__).parent.parent
+    TEMP_DIR = BASE_DIR / "temp"
+    MUSIC_DIR = BASE_DIR / "music"
 
-# Créer les dossiers
-TEMP_DIR.mkdir(exist_ok=True)
-MUSIC_DIR.mkdir(exist_ok=True)
+# Créer les dossiers s'ils n'existent pas
+TEMP_DIR.mkdir(parents=True, exist_ok=True)
+MUSIC_DIR.mkdir(parents=True, exist_ok=True)
 
 print(f"📁 Temp: {TEMP_DIR}")
 print(f"📁 Music: {MUSIC_DIR}")
@@ -863,7 +870,7 @@ if __name__ == '__main__':
     print(f"📁 Bibliothèque musicale: {MUSIC_DIR}")
     print(f"📊 Taille max de la queue: {MAX_QUEUE_SIZE}")
     print("="*60)
-    print("🚀 Serveur démarré sur http://localhost:5000")
+    print("🚀 Serveur démarré sur http://localhost:8080")
     print("="*60)
     print("\n💡 Endpoints disponibles:")
     print("   GET  /                → Dashboard principal")

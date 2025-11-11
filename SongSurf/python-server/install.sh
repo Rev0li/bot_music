@@ -88,30 +88,148 @@ print_success "Python $PYTHON_VERSION détecté"
 
 print_step "Vérification de FFmpeg..."
 
-if ! command -v ffmpeg &> /dev/null; then
-    print_warning "FFmpeg n'est pas installé"
-    print_info "Installation automatique de FFmpeg..."
+# Fonction pour installer FFmpeg localement (sans sudo)
+install_ffmpeg_local() {
+    print_info "Installation locale de FFmpeg (sans sudo)..."
     
-    # Détecter l'OS et installer FFmpeg
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        sudo apt update && sudo apt install -y ffmpeg
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        brew install ffmpeg
+    INSTALL_DIR="$HOME/.local/ffmpeg"
+    mkdir -p "$INSTALL_DIR"
+    
+    # Détecter l'architecture
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then
+        FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz"
     else
-        print_warning "Installation manuelle requise: sudo apt install ffmpeg"
+        print_error "Architecture non supportée: $ARCH"
+        return 1
     fi
     
-    # Vérifier à nouveau
-    if command -v ffmpeg &> /dev/null; then
-        print_success "FFmpeg installé avec succès"
+    print_info "Téléchargement de FFmpeg..."
+    cd "$INSTALL_DIR"
+    
+    if command -v wget &> /dev/null; then
+        wget -q --show-progress "$FFMPEG_URL" -O ffmpeg.tar.xz
+    elif command -v curl &> /dev/null; then
+        curl -L "$FFMPEG_URL" -o ffmpeg.tar.xz
     else
-        print_error "Impossible d'installer FFmpeg automatiquement"
-        print_info "Installez-le manuellement: sudo apt install ffmpeg"
-        exit 1
+        print_error "wget ou curl requis pour télécharger FFmpeg"
+        return 1
     fi
-else
+    
+    print_info "Extraction..."
+    tar -xf ffmpeg.tar.xz 2>/dev/null
+    rm -f ffmpeg.tar.xz
+    
+    # Trouver le dossier extrait
+    FFMPEG_DIR=$(find . -maxdepth 1 -type d -name "ffmpeg-*-static" | head -n 1)
+    
+    if [ -z "$FFMPEG_DIR" ]; then
+        print_error "Erreur lors de l'extraction"
+        return 1
+    fi
+    
+    if [ -f "$FFMPEG_DIR/ffmpeg" ]; then
+        FFMPEG_VERSION=$("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -n1 | awk '{print $3}')
+        print_success "FFmpeg $FFMPEG_VERSION installé localement"
+        print_info "Emplacement: $INSTALL_DIR/$FFMPEG_DIR"
+        return 0
+    else
+        print_error "FFmpeg non trouvé après extraction"
+        return 1
+    fi
+}
+
+# Vérifier si FFmpeg est déjà installé
+if command -v ffmpeg &> /dev/null; then
     FFMPEG_VERSION=$(ffmpeg -version 2>&1 | head -n1 | awk '{print $3}')
-    print_success "FFmpeg $FFMPEG_VERSION détecté"
+    print_success "FFmpeg $FFMPEG_VERSION détecté (système)"
+else
+    print_warning "FFmpeg n'est pas installé"
+    echo ""
+    
+    # Détecter l'OS
+    OS="unknown"
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        OS="linux"
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        OS="macos"
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        OS="windows"
+    fi
+    
+    print_info "OS détecté: $OS"
+    echo ""
+    
+    # Proposer les options d'installation
+    echo -e "${CYAN}Options d'installation FFmpeg:${NC}"
+    echo "  1. Installation système (avec sudo) - Recommandé"
+    echo "  2. Installation locale (sans sudo) - Pour école/entreprise"
+    echo "  3. Ignorer (installer manuellement plus tard)"
+    echo ""
+    read -p "Choisissez une option (1/2/3): " -n 1 -r FFMPEG_CHOICE
+    echo ""
+    echo ""
+    
+    case $FFMPEG_CHOICE in
+        1)
+            print_step "Installation système de FFmpeg..."
+            
+            if [ "$OS" = "linux" ]; then
+                # Détecter la distribution
+                if [ -f /etc/debian_version ]; then
+                    sudo apt update && sudo apt install -y ffmpeg
+                elif [ -f /etc/redhat-release ]; then
+                    sudo yum install -y ffmpeg || sudo dnf install -y ffmpeg
+                elif [ -f /etc/arch-release ]; then
+                    sudo pacman -S --noconfirm ffmpeg
+                else
+                    print_warning "Distribution non reconnue"
+                    sudo apt install -y ffmpeg || print_error "Installation échouée"
+                fi
+            elif [ "$OS" = "macos" ]; then
+                if command -v brew &> /dev/null; then
+                    brew install ffmpeg
+                else
+                    print_error "Homebrew non installé. Installez-le depuis: https://brew.sh"
+                    exit 1
+                fi
+            else
+                print_error "OS non supporté pour l'installation automatique"
+                exit 1
+            fi
+            
+            # Vérifier l'installation
+            if command -v ffmpeg &> /dev/null; then
+                FFMPEG_VERSION=$(ffmpeg -version 2>&1 | head -n1 | awk '{print $3}')
+                print_success "FFmpeg $FFMPEG_VERSION installé"
+            else
+                print_error "Installation échouée"
+                exit 1
+            fi
+            ;;
+        2)
+            install_ffmpeg_local
+            if [ $? -ne 0 ]; then
+                print_error "Installation locale échouée"
+                exit 1
+            fi
+            ;;
+        3)
+            print_warning "FFmpeg non installé"
+            print_info "La conversion MP3 ne fonctionnera pas"
+            print_info "Installez FFmpeg manuellement:"
+            echo "  - Linux: sudo apt install ffmpeg"
+            echo "  - macOS: brew install ffmpeg"
+            echo "  - Ou relancez ce script plus tard"
+            echo ""
+            ;;
+        *)
+            print_error "Option invalide"
+            exit 1
+            ;;
+    esac
 fi
 
 # ============================================
