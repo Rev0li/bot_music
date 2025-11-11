@@ -81,16 +81,31 @@ function detectPageType() {
 // API BACKEND
 // ============================================
 
-async function extractMetadata(url) {
+async function extractMetadata(url, timeoutMs = 30000) {
   try {
-    const response = await fetch(`${CONFIG.serverUrl}/api/extract-metadata`, {
+    // Créer une promesse avec timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('timeout')), timeoutMs)
+    );
+    
+    const fetchPromise = fetch(`${CONFIG.serverUrl}/api/extract-metadata`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url })
-    });
-    return await response.json();
+    }).then(response => response.json());
+    
+    // Course entre le fetch et le timeout
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    return result;
   } catch (error) {
     log('❌', 'Erreur extraction métadonnées:', error);
+    if (error.message === 'timeout') {
+      return { 
+        success: false, 
+        error: 'Timeout: Vérifiez qu\'une musique est chargée sur YouTube Music',
+        errorType: 'timeout'
+      };
+    }
     return { success: false, error: error.message };
   }
 }
@@ -128,12 +143,28 @@ async function pingServer() {
     console.log('📦 Data:', data);
     const isOk = data.status === 'ok';
     console.log('✅ Serveur OK:', isOk);
-    return isOk;
+    return { success: isOk, error: null };
   } catch (error) {
     console.error('❌ Erreur ping serveur:', error);
     console.error('   Message:', error.message);
     console.error('   Type:', error.name);
-    return false;
+    
+    // Détecter le type d'erreur
+    let errorType = 'unknown';
+    let errorMessage = error.message;
+    
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      errorType = 'cors_or_blocked';
+      errorMessage = 'Connexion bloquée';
+    } else if (error.message.includes('NetworkError')) {
+      errorType = 'network';
+      errorMessage = 'Erreur réseau';
+    } else if (error.message.includes('CORS')) {
+      errorType = 'cors';
+      errorMessage = 'Erreur CORS';
+    }
+    
+    return { success: false, error: errorType, message: errorMessage };
   }
 }
 
@@ -142,7 +173,7 @@ async function pingServer() {
 // ============================================
 
 let statusPollingInterval = null;
-let widgetPosition = null; // Sauvegarder la position du widget
+let widgetPosition = null; // Sauvegarder la position du widget (persistante entre les recréations)
 
 // Rendre un élément déplaçable
 function makeDraggable(element) {
@@ -217,11 +248,12 @@ function createWidget() {
     right: 20px;
     z-index: 999999;
     width: 320px;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(20px);
+    background: linear-gradient(135deg, rgba(30, 30, 45, 0.95) 0%, rgba(20, 20, 30, 0.98) 100%);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     cursor: move;
@@ -242,10 +274,10 @@ function createWidget() {
     </style>
     
     <!-- Header -->
-    <div style="padding: 16px; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.06);">
-      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #1d1d1f;">
+    <div style="padding: 16px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #ffffff;">
         <span style="font-size: 20px;">🎵</span>
-        <span style="font-weight: 600; font-size: 15px; letter-spacing: -0.3px;">SongSurf</span>
+        <span style="font-weight: 700; font-size: 16px; letter-spacing: -0.5px; background: linear-gradient(135deg, #ff3b6d 0%, #7c3aed 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">SongSurf</span>
       </div>
     </div>
     
@@ -255,17 +287,18 @@ function createWidget() {
       <div id="page-type-info" style="
         margin-bottom: 12px;
         padding: 8px 12px;
-        background: #f5f5f7;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 8px;
         font-size: 12px;
-        color: #86868b;
+        color: rgba(255, 255, 255, 0.7);
         text-align: center;
       "></div>
       
       <!-- Bouton Télécharger Musique -->
       <button id="download-song-btn" style="
         width: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #ff3b6d 0%, #7c3aed 100%);
         color: white;
         border: none;
         padding: 14px;
@@ -273,9 +306,10 @@ function createWidget() {
         font-size: 15px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 16px rgba(255, 59, 109, 0.4);
         margin-bottom: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
       ">
         🎵 Télécharger cette musique
       </button>
@@ -283,7 +317,7 @@ function createWidget() {
       <!-- Bouton Télécharger Album/Playlist -->
       <button id="download-album-btn" style="
         width: 100%;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
         color: white;
         border: none;
         padding: 14px;
@@ -291,9 +325,10 @@ function createWidget() {
         font-size: 15px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s;
-        box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
         display: none;
+        border: 1px solid rgba(255, 255, 255, 0.1);
       ">
         💿 Télécharger l'album/playlist
       </button>
@@ -301,10 +336,11 @@ function createWidget() {
       <div id="status-message" style="
         margin-top: 12px;
         padding: 12px;
-        background: #f5f5f7;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 8px;
         font-size: 13px;
-        color: #86868b;
+        color: rgba(255, 255, 255, 0.7);
         text-align: center;
         display: none;
       "></div>
@@ -327,21 +363,21 @@ function createWidget() {
   // Hover effects - Song button
   downloadSongBtn.addEventListener('mouseenter', () => {
     downloadSongBtn.style.transform = 'translateY(-2px)';
-    downloadSongBtn.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)';
+    downloadSongBtn.style.boxShadow = '0 8px 24px rgba(255, 59, 109, 0.5)';
   });
   downloadSongBtn.addEventListener('mouseleave', () => {
     downloadSongBtn.style.transform = 'translateY(0)';
-    downloadSongBtn.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+    downloadSongBtn.style.boxShadow = '0 4px 16px rgba(255, 59, 109, 0.4)';
   });
   
   // Hover effects - Album button
   downloadAlbumBtn.addEventListener('mouseenter', () => {
     downloadAlbumBtn.style.transform = 'translateY(-2px)';
-    downloadAlbumBtn.style.boxShadow = '0 6px 16px rgba(240, 147, 251, 0.4)';
+    downloadAlbumBtn.style.boxShadow = '0 8px 24px rgba(124, 58, 237, 0.5)';
   });
   downloadAlbumBtn.addEventListener('mouseleave', () => {
     downloadAlbumBtn.style.transform = 'translateY(0)';
-    downloadAlbumBtn.style.boxShadow = '0 4px 12px rgba(240, 147, 251, 0.3)';
+    downloadAlbumBtn.style.boxShadow = '0 4px 16px rgba(124, 58, 237, 0.4)';
   });
   
   log('✅', 'Widget créé', pageInfo);
@@ -377,27 +413,27 @@ function showPlaylistConfirmation(playlistData, url) {
   
   content.innerHTML = `
     <div style="padding: 20px 0;">
-      <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #1d1d1f; font-weight: 600;">
+      <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #ffffff; font-weight: 600;">
         ${playlistData.type === 'album' ? '💿 Album' : '📋 Playlist'} détecté
       </h3>
       
-      <div style="background: #f5f5f7; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-        <div style="font-size: 14px; color: #1d1d1f; margin-bottom: 8px;">
+      <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+        <div style="font-size: 14px; color: #ffffff; margin-bottom: 8px;">
           <strong>${playlistData.title}</strong>
         </div>
-        <div style="font-size: 13px; color: #86868b; margin-bottom: 4px;">
+        <div style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">
           🎤 ${playlistData.artist}
         </div>
-        <div style="font-size: 13px; color: #86868b; margin-bottom: 4px;">
+        <div style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">
           🎵 ${totalSongs} chanson${totalSongs > 1 ? 's' : ''}
         </div>
-        <div style="font-size: 13px; color: #86868b;">
+        <div style="font-size: 13px; color: rgba(255, 255, 255, 0.7);">
           ⏱️ ${durationMin}min ${durationSec}s
         </div>
       </div>
       
-      <div style="background: #fff3cd; padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #ffc107;">
-        <div style="font-size: 12px; color: #856404;">
+      <div style="background: rgba(255, 193, 7, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(255, 193, 7, 0.3);">
+        <div style="font-size: 12px; color: #ffc107;">
           ⚠️ ${totalSongs} chansons seront téléchargées
         </div>
       </div>
@@ -406,14 +442,14 @@ function showPlaylistConfirmation(playlistData, url) {
         <button id="cancel-playlist-btn" style="
           flex: 1;
           padding: 12px;
-          background: rgba(0,0,0,0.04);
-          color: #1d1d1f;
-          border: none;
+          background: rgba(255, 255, 255, 0.05);
+          color: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 10px;
           font-size: 14px;
           font-weight: 500;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         ">
           ❌ Annuler
         </button>
@@ -421,15 +457,15 @@ function showPlaylistConfirmation(playlistData, url) {
         <button id="confirm-playlist-btn" style="
           flex: 2;
           padding: 12px;
-          background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
           color: white;
-          border: none;
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 10px;
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
-          box-shadow: 0 2px 8px rgba(240, 147, 251, 0.3);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
         ">
           💿 Télécharger tout
         </button>
@@ -438,17 +474,39 @@ function showPlaylistConfirmation(playlistData, url) {
   `;
   
   // Event listeners
-  document.getElementById('cancel-playlist-btn').addEventListener('click', () => {
-    // Supprimer le widget existant
+  const cancelPlaylistBtn = document.getElementById('cancel-playlist-btn');
+  const confirmPlaylistBtn = document.getElementById('confirm-playlist-btn');
+  
+  // Hover effects - Cancel button
+  cancelPlaylistBtn.addEventListener('mouseenter', () => {
+    cancelPlaylistBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+  });
+  cancelPlaylistBtn.addEventListener('mouseleave', () => {
+    cancelPlaylistBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+  });
+  
+  // Hover effects - Confirm button
+  confirmPlaylistBtn.addEventListener('mouseenter', () => {
+    confirmPlaylistBtn.style.transform = 'translateY(-2px)';
+    confirmPlaylistBtn.style.boxShadow = '0 8px 24px rgba(124, 58, 237, 0.5)';
+  });
+  confirmPlaylistBtn.addEventListener('mouseleave', () => {
+    confirmPlaylistBtn.style.transform = 'translateY(0)';
+    confirmPlaylistBtn.style.boxShadow = '0 4px 16px rgba(124, 58, 237, 0.4)';
+  });
+  
+  cancelPlaylistBtn.addEventListener('click', () => {
+    // Supprimer le widget existant (mais garder la position sauvegardée)
     const existingWidget = document.getElementById('songsurf-widget');
     if (existingWidget) {
       existingWidget.remove();
+      // NE PAS réinitialiser widgetPosition - on garde la position de l'utilisateur
     }
-    // Recréer le widget initial
+    // Recréer le widget initial (à la même position)
     createWidget();
   });
   
-  document.getElementById('confirm-playlist-btn').addEventListener('click', async () => {
+  confirmPlaylistBtn.addEventListener('click', async () => {
     showStatus('Envoi de la playlist au serveur...', 'info');
     
     // Envoyer au backend pour téléchargement
@@ -485,56 +543,64 @@ function showMetadataForm(metadata) {
   
   content.innerHTML = `
     <div style="margin-bottom: 16px;">
-      <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #1d1d1f; font-weight: 600;">
+      <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #ffffff; font-weight: 600;">
         Vérifier les métadonnées
       </h3>
     </div>
     
     <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
       <div>
-        <label style="display: block; font-size: 12px; color: #86868b; margin-bottom: 4px;">🎵 Titre</label>
+        <label style="display: block; font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">🎵 Titre</label>
         <input type="text" id="meta-title" value="${metadata.title || ''}" style="
           width: 100%;
           padding: 10px;
-          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 14px;
+          color: #ffffff;
           box-sizing: border-box;
         ">
       </div>
       
       <div>
-        <label style="display: block; font-size: 12px; color: #86868b; margin-bottom: 4px;">🎤 Artiste</label>
+        <label style="display: block; font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">🎤 Artiste</label>
         <input type="text" id="meta-artist" value="${metadata.artist || ''}" style="
           width: 100%;
           padding: 10px;
-          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 14px;
+          color: #ffffff;
           box-sizing: border-box;
         ">
       </div>
       
       <div>
-        <label style="display: block; font-size: 12px; color: #86868b; margin-bottom: 4px;">💿 Album</label>
+        <label style="display: block; font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">💿 Album</label>
         <input type="text" id="meta-album" value="${metadata.album || ''}" style="
           width: 100%;
           padding: 10px;
-          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 14px;
+          color: #ffffff;
           box-sizing: border-box;
         ">
       </div>
       
       <div>
-        <label style="display: block; font-size: 12px; color: #86868b; margin-bottom: 4px;">📅 Année</label>
+        <label style="display: block; font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">📅 Année</label>
         <input type="text" id="meta-year" value="${metadata.year || ''}" style="
           width: 100%;
           padding: 10px;
-          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           font-size: 14px;
+          color: #ffffff;
           box-sizing: border-box;
         ">
       </div>
@@ -544,8 +610,8 @@ function showMetadataForm(metadata) {
       <button id="cancel-btn" style="
         flex: 1;
         padding: 12px;
-        background: rgba(0,0,0,0.04);
-        color: #1d1d1f;
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.9);
         border: none;
         border-radius: 10px;
         font-size: 14px;
@@ -575,11 +641,38 @@ function showMetadataForm(metadata) {
   `;
   
   // Event listeners
-  document.getElementById('cancel-btn').addEventListener('click', () => {
-    createWidget(); // Recréer le widget initial
+  const cancelBtn = document.getElementById('cancel-btn');
+  const confirmBtn = document.getElementById('confirm-btn');
+  
+  // Hover effects - Cancel button
+  cancelBtn.addEventListener('mouseenter', () => {
+    cancelBtn.style.background = 'rgba(0,0,0,0.08)';
+  });
+  cancelBtn.addEventListener('mouseleave', () => {
+    cancelBtn.style.background = 'rgba(0,0,0,0.04)';
   });
   
-  document.getElementById('confirm-btn').addEventListener('click', () => {
+  // Hover effects - Confirm button
+  confirmBtn.addEventListener('mouseenter', () => {
+    confirmBtn.style.transform = 'translateY(-2px)';
+    confirmBtn.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+  });
+  confirmBtn.addEventListener('mouseleave', () => {
+    confirmBtn.style.transform = 'translateY(0)';
+    confirmBtn.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
+  });
+  
+  cancelBtn.addEventListener('click', () => {
+    // Supprimer le widget existant
+    const existingWidget = document.getElementById('songsurf-widget');
+    if (existingWidget) {
+      existingWidget.remove();
+    }
+    // Recréer le widget initial
+    createWidget();
+  });
+  
+  confirmBtn.addEventListener('click', () => {
     const updatedMetadata = {
       title: document.getElementById('meta-title').value,
       artist: document.getElementById('meta-artist').value,
@@ -606,11 +699,11 @@ function showProgress() {
         animation: spin 1s linear infinite;
       "></div>
       
-      <div style="font-size: 14px; color: #1d1d1f; font-weight: 500; margin-bottom: 8px;">
+      <div style="font-size: 14px; color: rgba(255, 255, 255, 0.9); font-weight: 500; margin-bottom: 8px;">
         Téléchargement en cours...
       </div>
       
-      <div id="progress-details" style="font-size: 12px; color: #86868b;">
+      <div id="progress-details" style="font-size: 12px; color: rgba(255, 255, 255, 0.9);">
         Veuillez patienter
       </div>
     </div>
@@ -632,6 +725,11 @@ function showSuccess(result) {
   const content = document.getElementById('songsurf-content');
   if (!content) return;
   
+  // Extraire les métadonnées
+  const metadata = result.metadata || {};
+  const title = metadata.title || metadata.album || 'Musique';
+  const artist = metadata.artist || 'Artiste inconnu';
+  
   content.innerHTML = `
     <div style="text-align: center; padding: 20px 0;">
       <div style="
@@ -648,12 +746,16 @@ function showSuccess(result) {
         ✓
       </div>
       
-      <div style="font-size: 15px; color: #1d1d1f; font-weight: 600; margin-bottom: 8px;">
+      <div style="font-size: 15px; color: rgba(255, 255, 255, 0.9); font-weight: 600; margin-bottom: 4px;">
         Téléchargement terminé !
       </div>
       
-      <div style="font-size: 12px; color: #86868b; margin-bottom: 20px;">
-        📁 ${result.file_path}
+      <div style="font-size: 14px; color: rgba(255, 255, 255, 0.9); font-weight: 500; margin-bottom: 4px;">
+        🎵 ${title}
+      </div>
+      
+      <div style="font-size: 13px; color: rgba(255, 255, 255, 0.9); margin-bottom: 16px;">
+        🎤 ${artist}
       </div>
       
       <button id="download-another-btn" style="
@@ -668,12 +770,24 @@ function showSuccess(result) {
         cursor: pointer;
         transition: all 0.2s;
       ">
-        Télécharger une autre chanson
+        ✨ Nouvelle musique
       </button>
     </div>
   `;
   
-  document.getElementById('download-another-btn').addEventListener('click', () => {
+  const downloadAnotherBtn = document.getElementById('download-another-btn');
+  
+  // Hover effect
+  downloadAnotherBtn.addEventListener('mouseenter', () => {
+    downloadAnotherBtn.style.transform = 'translateY(-2px)';
+    downloadAnotherBtn.style.boxShadow = '0 4px 12px rgba(0, 122, 255, 0.4)';
+  });
+  downloadAnotherBtn.addEventListener('mouseleave', () => {
+    downloadAnotherBtn.style.transform = 'translateY(0)';
+    downloadAnotherBtn.style.boxShadow = 'none';
+  });
+  
+  downloadAnotherBtn.addEventListener('click', () => {
     // Supprimer le widget existant
     const existingWidget = document.getElementById('songsurf-widget');
     if (existingWidget) {
@@ -692,19 +806,19 @@ function showError(error) {
     <div style="text-align: center; padding: 20px 0;">
       <div style="font-size: 48px; margin-bottom: 12px;">❌</div>
       
-      <div style="font-size: 15px; color: #c62828; font-weight: 600; margin-bottom: 8px;">
+      <div style="font-size: 15px; color: rgba(255, 255, 255, 0.9); font-weight: 600; margin-bottom: 8px;">
         Erreur
       </div>
       
-      <div style="font-size: 13px; color: #86868b; margin-bottom: 20px;">
+      <div style="font-size: 13px; color: rgba(255, 255, 255, 0.9); margin-bottom: 20px;">
         ${error}
       </div>
       
       <button id="retry-btn" style="
         width: 100%;
         padding: 12px;
-        background: rgba(0,0,0,0.04);
-        color: #1d1d1f;
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.9);
         border: none;
         border-radius: 10px;
         font-size: 14px;
@@ -724,6 +838,107 @@ function showError(error) {
       existingWidget.remove();
     }
     // Recréer le widget initial
+    createWidget();
+  });
+}
+
+function showDetailedError(serverResult) {
+  const content = document.getElementById('songsurf-content');
+  if (!content) return;
+  
+  let errorTitle = '❌ Erreur de connexion';
+  let errorDetails = '';
+  let solutions = [];
+  
+  if (serverResult.errorType === 'timeout' || serverResult.error?.includes('Timeout')) {
+    errorTitle = '⏱️ Timeout';
+    errorDetails = 'L\'extraction des métadonnées a pris trop de temps.';
+    solutions = [
+      '1️⃣ <strong>Lancez une musique</strong> sur YouTube Music',
+      '2️⃣ Attendez que la page soit complètement chargée',
+      '3️⃣ Vérifiez votre connexion internet',
+      '4️⃣ Réessayez dans quelques secondes'
+    ];
+  } else if (serverResult.error === 'cors_or_blocked') {
+    errorTitle = '🛡️ Connexion bloquée';
+    errorDetails = 'Le navigateur bloque la connexion au serveur Python.';
+    solutions = [
+      '1️⃣ <strong>Brave/Chrome:</strong> Désactivez le bloqueur de publicités',
+      '2️⃣ <strong>Brave:</strong> Shields → Désactiver pour ce site',
+      '3️⃣ Vérifiez que le serveur tourne: <code>python app.py</code>',
+      '4️⃣ Vérifiez l\'URL: <code>http://localhost:8080</code>'
+    ];
+  } else if (serverResult.error === 'network') {
+    errorTitle = '🌐 Erreur réseau';
+    errorDetails = 'Impossible de contacter le serveur.';
+    solutions = [
+      '1️⃣ Lancez le serveur: <code>python app.py</code>',
+      '2️⃣ Vérifiez le port 8080',
+      '3️⃣ Vérifiez votre pare-feu'
+    ];
+  } else {
+    errorTitle = '❌ Serveur non accessible';
+    errorDetails = serverResult.message || 'app.py non initialisé';
+    solutions = [
+      '1️⃣ Lancez: <code>python app.py</code>',
+      '2️⃣ Vérifiez: <code>http://localhost:8080</code>'
+    ];
+  }
+  
+  content.innerHTML = `
+    <div style="padding: 20px 0;">
+      <div style="text-align: center; font-size: 48px; margin-bottom: 12px;">
+        ${errorTitle.split(' ')[0]}
+      </div>
+      
+      <div style="font-size: 15px; color: rgba(255, 255, 255, 0.9); font-weight: 600; margin-bottom: 8px; text-align: center;">
+        ${errorTitle.substring(2)}
+      </div>
+      
+      <div style="font-size: 13px; color: rgba(255, 255, 255, 0.9); margin-bottom: 16px; text-align: center;">
+        ${errorDetails}
+      </div>
+      
+      <div style="background: rgba(255, 193, 7, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(255, 193, 7, 0.3);">
+        <div style="font-size: 12px; color: #ffc107; font-weight: 600; margin-bottom: 8px;">
+          💡 Solutions:
+        </div>
+        <div style="font-size: 11px; color: rgba(255, 193, 7, 0.9); line-height: 1.6; text-align: left;">
+          ${solutions.join('<br>')}
+        </div>
+      </div>
+      
+      <div style="background: rgba(33, 150, 243, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(33, 150, 243, 0.3);">
+        <div style="font-size: 11px; color: #2196f3; text-align: left;">
+          <strong>🔍 Diagnostic:</strong><br>
+          Type: ${serverResult.error || 'unknown'}<br>
+          Message: ${serverResult.message || 'N/A'}<br>
+          URL: ${CONFIG.serverUrl}
+        </div>
+      </div>
+      
+      <button id="retry-btn" style="
+        width: 100%;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      ">
+        🔄 Réessayer
+      </button>
+    </div>
+  `;
+  
+  document.getElementById('retry-btn').addEventListener('click', () => {
+    const existingWidget = document.getElementById('songsurf-widget');
+    if (existingWidget) {
+      existingWidget.remove();
+    }
     createWidget();
   });
 }
@@ -785,10 +1000,10 @@ async function handleDownloadSong(pageInfo) {
   
   // Vérifier la connexion au serveur
   showStatus('Connexion au serveur...', 'info');
-  const serverOnline = await pingServer();
+  const serverResult = await pingServer();
   
-  if (!serverOnline) {
-    showStatus('❌ Serveur non accessible. Lancez: python app.py', 'error');
+  if (!serverResult.success) {
+    showDetailedError(serverResult);
     return;
   }
   
@@ -800,7 +1015,12 @@ async function handleDownloadSong(pageInfo) {
   console.log('📦 Réponse du backend:', metadataResult);
   
   if (!metadataResult.success) {
-    showError(metadataResult.error || 'Erreur lors de l\'extraction des métadonnées');
+    // Utiliser showDetailedError pour les timeouts, sinon showError
+    if (metadataResult.errorType === 'timeout') {
+      showDetailedError(metadataResult);
+    } else {
+      showError(metadataResult.error || 'Erreur lors de l\'extraction des métadonnées');
+    }
     return;
   }
   
@@ -822,10 +1042,10 @@ async function handleDownloadAlbum(pageInfo) {
   
   // Vérifier la connexion au serveur
   showStatus('Connexion au serveur...', 'info');
-  const serverOnline = await pingServer();
+  const serverResult = await pingServer();
   
-  if (!serverOnline) {
-    showStatus('❌ Serveur non accessible. Lancez: python app.py', 'error');
+  if (!serverResult.success) {
+    showDetailedError(serverResult);
     return;
   }
   
@@ -837,7 +1057,12 @@ async function handleDownloadAlbum(pageInfo) {
   console.log('📦 Réponse du backend:', playlistResult);
   
   if (!playlistResult.success) {
-    showError(playlistResult.error || 'Erreur lors de l\'extraction de l\'album/playlist');
+    // Utiliser showDetailedError pour les timeouts, sinon showError
+    if (playlistResult.errorType === 'timeout') {
+      showDetailedError(playlistResult);
+    } else {
+      showError(playlistResult.error || 'Erreur lors de l\'extraction de l\'album/playlist');
+    }
     return;
   }
   
@@ -930,26 +1155,26 @@ function updateProgressDetails(progress) {
         ⬇️
       </div>
       
-      <div style="font-size: 15px; color: #1d1d1f; font-weight: 600; margin-bottom: 8px;">
+      <div style="font-size: 15px; color: #ffffff; font-weight: 600; margin-bottom: 8px;">
         Téléchargement en cours...
       </div>
       
-      <div style="font-size: 13px; color: #1d1d1f; font-weight: 500; margin-bottom: 16px;">
+      <div style="font-size: 13px; color: #ffffff; font-weight: 500; margin-bottom: 16px;">
         ${metadata.title || 'Chargement...'}
       </div>
       
-      <div style="background: #f5f5f7; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-        <div style="font-size: 12px; color: #86868b; margin-bottom: 4px;">
+      <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">
           🎤 ${metadata.artist || '...'}
         </div>
-        <div style="font-size: 12px; color: #86868b;">
+        <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7);">
           💿 ${metadata.album || '...'}
         </div>
       </div>
       
       ${queueRemaining > 0 ? `
-        <div style="background: #e3f2fd; padding: 10px; border-radius: 8px; border: 1px solid #2196f3;">
-          <div style="font-size: 13px; color: #1976d2; font-weight: 500;">
+        <div style="background: rgba(33, 150, 243, 0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(33, 150, 243, 0.3);">
+          <div style="font-size: 13px; color: #2196f3; font-weight: 500;">
             📋 ${queueRemaining} chanson${queueRemaining > 1 ? 's' : ''} en attente
           </div>
         </div>

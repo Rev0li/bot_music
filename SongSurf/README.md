@@ -72,9 +72,12 @@ Les musiques sont automatiquement :
 ## 📊 Dashboard
 
 Accédez au dashboard sur **http://localhost:8080** pour :
-- 📚 Voir votre bibliothèque musicale
-- 📈 Statistiques en temps réel
-- 🎵 Téléchargements récents
+- 📚 **Navigation 2 niveaux** - Artistes → Albums → Chansons
+- 📷 **Photos d'artistes** - Upload vos propres images
+- 🎴 **Flip cards 3D** - Cliquez sur un album pour voir les chansons
+- 🔍 **Recherche en temps réel** - Filtrez par titre, artiste ou album
+- 📈 **Statistiques** - Nombre d'artistes, albums et chansons
+- 🎨 **Design moderne** - Glassmorphism avec animations fluides
 
 ## 🛠️ Commandes Utiles
 

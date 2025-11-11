@@ -54,6 +54,9 @@ coverage.xml
 temp/
 music/
 
+# Photos d'artistes uploadées
+python-server/static/artist_photos/
+
 # Logs
 *.log
 logs/
