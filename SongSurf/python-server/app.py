@@ -67,8 +67,8 @@ else:
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 MUSIC_DIR.mkdir(parents=True, exist_ok=True)
 
-# Dossier pour les photos d'artistes
-ARTIST_PHOTOS_DIR = Path(__file__).parent / "static" / "artist_photos"
+# Dossier pour les photos d'artistes (dans le dossier music à la racine)
+ARTIST_PHOTOS_DIR = MUSIC_DIR / "artist_photos"
 ARTIST_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
 print(f"📁 Temp: {TEMP_DIR}")
