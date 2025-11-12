@@ -57,6 +57,10 @@ print_info() {
 clear
 print_header "🎵 SongSurf - Installation Automatique"
 
+# S'assurer que le script s'exécute depuis son dossier (pour trouver requirements.txt, venv, etc.)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || { print_error "Impossible de changer de répertoire vers $SCRIPT_DIR"; exit 1; }
+
 # ============================================
 # 1. Vérifier Python
 # ============================================
