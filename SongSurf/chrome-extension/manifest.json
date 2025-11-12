@@ -1,17 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "GrabSong V3",
-  "version": "3.0.0",
-  "description": "Télécharge automatiquement de la musique depuis YouTube Music via yt-dlp",
+  "name": "SongSurf",
+  "version": "4.0.0",
+  "description": "Télécharge de la musique depuis YouTube Music via yt-dlp - Version simplifiée",
   "permissions": [
     "activeTab",
-    "storage",
-    "clipboardWrite",
-    "clipboardRead"
+    "storage"
   ],
   "host_permissions": [
     "https://music.youtube.com/*",
-    "http://localhost:5000/*"
+    "http://localhost:8080/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -26,14 +24,14 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "icons/Song-logo.png",
+      "48": "icons/Song-logo.png",
+      "128": "icons/Song-logo.png"
     }
   },
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "icons/Song-logo.png",
+    "48": "icons/Song-logo.png",
+    "128": "icons/Song-logo.png"
   }
 }

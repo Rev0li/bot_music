@@ -1,361 +1,176 @@
-# 🎵 GrabSong V3 - Windows Edition
+# 🎵 SongSurf
 
-Extension Chrome + Serveur Python pour télécharger et organiser automatiquement de la musique depuis YouTube Music.
+Téléchargez facilement vos musiques depuis YouTube Music avec une extension Chrome et un serveur Python.
 
-> **🪟 Version Windows Native** - Cette version est optimisée pour Windows avec explorateur de fichiers intégré. Pour une version Linux/WSL, voir la branche `linux`.
+## 🚀 Installation Rapide
 
-## ✨ Fonctionnalités
+### 🐳 Méthode 1 : Docker (Recommandé)
 
-- ✅ **Téléchargement direct** via yt-dlp (plus besoin de Y2Mate)
-- ✅ **Interface élégante** style Apple avec transitions douces
-- ✅ **Barre de progression animée** avec variations aléatoires
-- ✅ **Organisation automatique** (Artiste/Album/Titre.mp3)
-- ✅ **Tags ID3 complets** avec pochette d'album intégrée
-- ✅ **Bouton "Télécharger à nouveau"** pour re-télécharger facilement
-- ✅ **Bouton "Annuler"** dans le formulaire de métadonnées
-
-## 🚀 Installation
-
-### Méthode Rapide (Recommandée) 🆕
+**Aucune installation manuelle, tout est inclus !**
 
 ```bash
-cd V3/python-server
+./docker-start.sh
+```
+
+C'est tout ! Le serveur démarre sur **http://localhost:8080**
+
+Pour arrêter :
+```bash
+./docker-stop.sh
+```
+
+---
+
+### 🐍 Méthode 2 : Installation Python Classique
+
+#### 1. Installer le serveur Python
+
+```bash
+cd python-server
 ./install.sh
 ```
 
-Le script `install.sh` configure automatiquement tout :
-- ✅ Vérifie Python et FFmpeg
-- ✅ Crée l'environnement virtuel
-- ✅ Installe toutes les dépendances
-- ✅ Crée les dossiers nécessaires
+Le script installe **automatiquement** :
+- ✅ Python 3 et environnement virtuel
+- ✅ FFmpeg (détection OS + choix d'installation)
+  - Avec sudo (système) - Recommandé
+  - Sans sudo (local) - Pour école/entreprise
+- ✅ Toutes les dépendances Python
 
-**Démarrage :**
+#### 2. Démarrer le serveur
+
 ```bash
 ./start.sh
 ```
 
-> 📖 **Voir [QUICK_START.md](QUICK_START.md) pour un guide complet**
+Le serveur démarre sur **http://localhost:8080**
 
 ---
 
-### Méthode Manuelle
+## 📱 Installation Extension Chrome
 
-#### 1. Prérequis
+1. Ouvrez Chrome et allez sur `chrome://extensions/`
+2. Activez le **Mode développeur** (en haut à droite)
+3. Cliquez sur **Charger l'extension non empaquetée**
+4. Sélectionnez le dossier `chrome-extension/`
 
-**FFmpeg** (requis par yt-dlp pour la conversion MP3)
+## 🎯 Utilisation
+
+1. **Allez sur YouTube Music** (music.youtube.com)
+2. **Cliquez sur le widget SongSurf** (en bas à droite)
+3. **Téléchargez** :
+   - 🎵 Une chanson
+   - 💿 Un album complet
+   - 📋 Une playlist
+
+Les musiques sont automatiquement :
+- ✅ Téléchargées en MP3
+- ✅ Organisées par Artiste/Album
+- ✅ Taguées avec métadonnées
+- ✅ Avec pochette intégrée
+
+## 📊 Dashboard
+
+Accédez au dashboard sur **http://localhost:8080** pour :
+- 📚 **Navigation 2 niveaux** - Artistes → Albums → Chansons
+- 📷 **Photos d'artistes** - Upload vos propres images
+- 🎴 **Flip cards 3D** - Cliquez sur un album pour voir les chansons
+- 🔍 **Recherche en temps réel** - Filtrez par titre, artiste ou album
+- 📈 **Statistiques** - Nombre d'artistes, albums et chansons
+- 🎨 **Design moderne** - Glassmorphism avec animations fluides
+
+## 🛠️ Commandes Utiles
+
+### 🐳 Avec Docker
 
 ```bash
-# Sur WSL/Ubuntu
-sudo apt update
-sudo apt install ffmpeg
+# Démarrer
+./docker-start.sh
 
-# Sur Windows avec Winget
-winget install ffmpeg
+# Arrêter
+./docker-stop.sh
 
-# Ou avec Chocolatey
-choco install ffmpeg
+# Voir les logs
+docker compose logs -f
 
-# Vérifier l'installation
-ffmpeg -version
+# Redémarrer
+docker compose restart
+
+# Statut
+docker compose ps
 ```
 
-**Python 3.8+**
+### 🐍 Sans Docker
 
 ```bash
-# Sur WSL/Ubuntu
-sudo apt install python3 python3-venv python3-pip
+# Installer/Réinstaller
+cd python-server
+./install.sh
 
-# Vérifier
-python3 --version
+# Démarrer le serveur
+./start.sh
+
+# Arrêter le serveur
+Ctrl+C
 ```
 
-#### 2. Serveur Python
-
-```bash
-cd V3/python-server
-
-# Créer l'environnement virtuel
-python3 -m venv venv
-
-# Activer l'environnement
-source venv/bin/activate  # WSL/Linux
-# ou
-venv\Scripts\activate     # Windows PowerShell
-
-# Installer les dépendances
-pip install -r requirements.txt
-
-# Lancer le serveur
-python app.py
-```
-
-Le serveur démarre sur `http://localhost:5000`
-
-### 3. Extension Chrome
+## 📁 Structure du Projet
 
 ```
-1. Ouvrir chrome://extensions/
-2. Activer "Mode développeur"
-3. Cliquer "Charger l'extension non empaquetée"
-4. Sélectionner le dossier V3/chrome-extension/
-```
-
-## 📁 Structure
-
-```
-V3/
-├── chrome-extension/      # Extension Chrome
+SongSurf/
+├── python-server/          # Serveur Flask
+│   ├── install.sh         # Installation automatique
+│   ├── start.sh           # Démarrage automatique
+│   ├── app.py             # Serveur principal
+│   ├── downloader.py      # Téléchargement yt-dlp
+│   └── organizer.py       # Organisation des fichiers
+│
+├── chrome-extension/       # Extension Chrome
 │   ├── manifest.json      # Configuration
-│   ├── background.js      # Service Worker
-│   ├── content.js         # Interface utilisateur
-│   └── popup.html/js      # Popup
+│   ├── content.js         # Script principal
+│   └── background.js      # Service worker
 │
-├── python-server/         # Serveur Python
-│   ├── app.py             # Serveur Flask
-│   ├── downloader.py      # Module yt-dlp
-│   ├── organizer.py       # Organisation des fichiers
-│   └── requirements.txt   # Dépendances
-│
-├── temp/                  # Téléchargements temporaires
-└── music/                 # Bibliothèque musicale organisée
-    └── Artist/
-        └── Album/
-            └── Title.mp3
+├── music/                  # Bibliothèque musicale
+└── temp/                   # Fichiers temporaires
 ```
 
-## 🎮 Utilisation
+## 🔧 Prérequis
 
-1. **Lancer le serveur Python**
-   ```bash
-   cd V3/python-server
-   ./start.sh
-   ```
-   
-   Ou manuellement :
-   ```bash
-   source venv/bin/activate
-   python app.py
-   ```
+### Avec Docker (Recommandé)
+- **Docker** et **Docker Compose**
+- **Chrome/Edge** (pour l'extension)
 
-2. **Aller sur YouTube Music**
-   - Ouvrir https://music.youtube.com
-   - Lancer une musique
+### Sans Docker
+- **Python 3.8+**
+- **FFmpeg** (installé automatiquement)
+- **Chrome/Edge** (pour l'extension)
 
-3. **Utiliser l'extension**
-   - Cliquer sur le widget "🎵 GrabSong"
-   - Cliquer sur "⬇️ Télécharger"
-   - Vérifier/modifier les métadonnées
-   - Cliquer sur "💾 Télécharger"
+### 🏫 Sans Droits Administrateur (École/Entreprise)
 
-4. **Résultat**
-   - Le fichier se télécharge automatiquement
-   - Il est organisé dans `music/Artist/Album/Title.mp3`
-   - Les tags ID3 sont mis à jour avec pochette intégrée
+Le script `install.sh` propose automatiquement une **installation locale** de FFmpeg si vous n'avez pas les droits sudo. Choisissez simplement l'option 2 lors de l'installation !
 
-## 🔄 Workflow
+## 🐳 Pourquoi Docker ?
 
-```
-YouTube Music → Extension Chrome → Serveur Python
-    ↓
-yt-dlp télécharge en MP3 → Organisation automatique
-    ↓
-music/Artist/Album/Title.mp3 (avec tags ID3)
-```
-
-## 📊 Comparaison V2 vs V3
-
-| Critère | V2 | V3 |
-|---------|----|----|
-| **Site externe** | Y2Mate | Aucun |
-| **Détection fenêtre** | Oui (pywinauto) | Non |
-| **Vitesse** | ~30s | ~10s |
-| **Fiabilité** | Moyenne | Élevée |
-| **Complexité** | Élevée | Faible |
-
-## 🐛 Dépannage
-
-### Serveur Python non accessible
-```
-❌ Erreur: Serveur Python non accessible
-
-✅ Solution: Lancer python app.py
-```
-
-### FFmpeg non trouvé
-```
-❌ Erreur: FFmpeg non trouvé
-
-✅ Solution: Installer FFmpeg
-   Windows: choco install ffmpeg
-   Linux: sudo apt install ffmpeg
-   macOS: brew install ffmpeg
-```
-
-### Vidéo non disponible
-```
-❌ Erreur: Cette vidéo n'est pas disponible
-
-✅ Solution: Essayer une autre musique
-```
-
-## 📖 API du Serveur Python
-
-### GET /ping
-Test de connexion
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "message": "GrabSong V3 server is running",
-  "timestamp": "2025-10-10T09:30:00"
-}
-```
-
-### POST /download
-Lance un téléchargement
-
-**Request:**
-```json
-{
-  "url": "https://music.youtube.com/watch?v=...",
-  "artist": "Artist Name",
-  "album": "Album Name",
-  "title": "Song Title",
-  "year": "2024"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Téléchargement démarré",
-  "timestamp": "2025-10-10T09:30:00"
-}
-```
-
-### GET /status
-Retourne le statut du téléchargement en cours
-
-**Response (En cours):**
-```json
-{
-  "in_progress": true,
-  "progress": {
-    "status": "downloading",
-    "percent": 45,
-    "downloaded": 2300000,
-    "total": 5100000,
-    "speed": "512 KB/s",
-    "eta": "5s"
-  }
-}
-```
-
-**Response (Terminé):**
-```json
-{
-  "in_progress": false,
-  "last_completed": {
-    "success": true,
-    "file_path": "Drake/Views/One Dance.mp3",
-    "timestamp": "2025-10-10T09:30:00"
-  }
-}
-```
-
-### POST /cleanup
-Nettoie le dossier temporaire
-
-**Response:**
-```json
-{
-  "success": true,
-  "deleted_files": ["file1.mp3", "file2.mp3"]
-}
-```
-
-### GET /stats
-Retourne les statistiques de la bibliothèque
-
-**Response:**
-```json
-{
-  "artists": 42,
-  "albums": 156,
-  "songs": 789
-}
-```
-
-## 🎯 Exemple de Résultat
-
-**Avant:**
-```
-Téléchargement d'une musique sur YouTube Music
-```
-
-**Après:**
-```
-music/
-└── Drake/
-    └── Views/
-        └── One Dance.mp3
-            (avec tags ID3: Artiste, Album, Titre, Année)
-```
-
-## 🎉 Avantages de la V3
-
-1. **Simplicité** - Un seul workflow direct
-2. **Fiabilité** - Pas de dépendance externe
-3. **Rapidité** - 3x plus rapide que la V2
-4. **Robustesse** - Moins de points de défaillance
-5. **Progression** - Feedback en temps réel
+- ✅ **Aucune installation manuelle** - Python, FFmpeg, tout est inclus
+- ✅ **Pas de pollution** - Rien n'est installé sur votre PC
+- ✅ **Portable** - Fonctionne sur Linux, Mac, Windows
+- ✅ **Isolation** - Pas de conflit avec vos autres projets
+- ✅ **Mise à jour facile** - Un simple `docker compose pull`
 
 ## 📝 Notes
 
-- **FFmpeg** est requis pour la conversion MP3
-- Le serveur Python doit être lancé avant d'utiliser l'extension
-- Les fichiers temporaires sont automatiquement supprimés après organisation
-- Les doublons sont gérés automatiquement (ajout d'un suffixe)
+- Les musiques sont sauvegardées dans `music/Artiste/Album/`
+- Le serveur doit tourner pour que l'extension fonctionne
+- Le widget est déplaçable (drag & drop)
+- La progression s'affiche en temps réel
+- Avec Docker, vos musiques restent sur votre PC (volume monté)
 
-## 🔧 Configuration
+## 🚀 Développé avec
 
-Le serveur Python peut être configuré en modifiant les constantes dans `app.py`:
-
-```python
-TEMP_DIR = BASE_DIR / "temp"      # Dossier temporaire
-MUSIC_DIR = BASE_DIR / "music"    # Bibliothèque musicale
-```
-
-## ✅ Tests
-
-Pour tester le serveur Python:
-
-```bash
-# Test de connexion
-curl http://localhost:5000/ping
-
-# Test de téléchargement
-curl -X POST http://localhost:5000/download \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","artist":"Rick Astley","album":"Whenever You Need Somebody","title":"Never Gonna Give You Up","year":"1987"}'
-
-# Vérifier le statut
-curl http://localhost:5000/status
-
-# Statistiques
-curl http://localhost:5000/stats
-```
-
-## 🎵 Happy Music Organizing!
-
-**Version:** 3.0.0 (Windows Edition)  
-**Date:** 2025-10-10  
-**Powered by:** yt-dlp, Flask, Chrome Extensions, PowerShell
+- **Backend** : Python, Flask, yt-dlp, Mutagen
+- **Frontend** : JavaScript, HTML, CSS
+- **Extension** : Chrome Extension API
 
 ---
 
-## 🐧 Version Linux/WSL
-
-Pour une version Linux/WSL, voir la branche `linux`.
+**Prêt à télécharger de la musique ! 🎵**

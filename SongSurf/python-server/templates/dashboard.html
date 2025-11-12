@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SongSurf Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header avec stats intégrées -->
+        <header style="margin-bottom: 24px;">
+            <!-- Bannière Logo -->
+            <div class="banner-container">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="SongSurf" class="banner-logo">
+            </div>
+            
+            <!-- Statistiques + Toolbar -->
+            <div class="stats-toolbar-container">
+                <div class="stats-row">
+                    <div class="stat-compact">
+                        <div class="stat-compact-icon">🎤</div>
+                        <div class="stat-compact-content">
+                            <div class="stat-compact-value" id="total-artists">-</div>
+                            <div class="stat-compact-label">Artistes</div>
+                        </div>
+                    </div>
+                    <div class="stat-compact">
+                        <div class="stat-compact-icon">💿</div>
+                        <div class="stat-compact-content">
+                            <div class="stat-compact-value" id="total-albums">-</div>
+                            <div class="stat-compact-label">Albums</div>
+                        </div>
+                    </div>
+                    <div class="stat-compact">
+                        <div class="stat-compact-icon">🎵</div>
+                        <div class="stat-compact-content">
+                            <div class="stat-compact-value" id="total-songs">-</div>
+                            <div class="stat-compact-label">Chansons</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <input type="text" id="search-input" placeholder="🔍 Rechercher..." oninput="filterLibrary(this.value)">
+                    <button id="refresh-btn" onclick="refreshDashboard()">🔄</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Music Organizer -->
+        <section class="organizer-section">
+            <div id="library-tree" style="
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 24px;
+                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                font-size: 13px;
+                position: relative;
+            ">
+                <!-- Tree will be inserted here -->
+            </div>
+        </section>
+
+
+
+        <!-- Footer -->
+        <footer style="display: flex; justify-content: center; align-items: center; padding: 20px; color: var(--text-secondary); font-size: 13px;">
+            <a href="https://www.paypal.com/donate" target="_blank" style="
+                color: var(--accent);
+                text-decoration: none;
+                font-weight: 600;
+                transition: all 0.2s;
+            " onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                ❤️ Faire un don
+            </a>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

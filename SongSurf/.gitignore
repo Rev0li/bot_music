@@ -54,6 +54,10 @@ coverage.xml
 temp/
 music/
 
+# Note: music/ inclut déjà music/artist_photos/
+# Ancienne localisation (au cas où)
+python-server/static/artist_photos/
+
 # Logs
 *.log
 logs/

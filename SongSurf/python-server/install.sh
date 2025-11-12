@@ -1,16 +1,15 @@
 #!/bin/bash
 # ============================================
-# 🎵 GrabSong V3 - Script d'installation
+# 🎵 SongSurf - Installation Automatique
 # ============================================
 # 
-# Ce script configure automatiquement :
-#   - Environnement virtuel Python
-#   - Installation des dépendances
-#   - Vérification de FFmpeg
+# Ce script installe tout automatiquement :
+#   ✅ Environnement virtuel Python
+#   ✅ Toutes les dépendances
+#   ✅ FFmpeg (si nécessaire)
+#   ✅ Dossiers de travail
 #
-# Usage:
-#   chmod +x install.sh
-#   ./install.sh
+# Usage: ./install.sh
 # ============================================
 
 set -e  # Arrêter en cas d'erreur
@@ -55,7 +54,12 @@ print_info() {
 # DÉBUT DE L'INSTALLATION
 # ============================================
 
-print_header "🎵 GrabSong V3 - Installation"
+clear
+print_header "🎵 SongSurf - Installation Automatique"
+
+# S'assurer que le script s'exécute depuis son dossier (pour trouver requirements.txt, venv, etc.)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || { print_error "Impossible de changer de répertoire vers $SCRIPT_DIR"; exit 1; }
 
 # ============================================
 # 1. Vérifier Python
@@ -66,10 +70,17 @@ print_step "Vérification de Python..."
 if ! command -v python3 &> /dev/null; then
     print_error "Python 3 n'est pas installé"
     echo ""
-    print_info "Installation sur WSL/Ubuntu:"
-    echo "  sudo apt update"
-    echo "  sudo apt install python3 python3-venv python3-pip"
-    exit 1
+    print_info "Installation automatique..."
+    
+    # Détecter l'OS
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt update && sudo apt install -y python3 python3-venv python3-pip
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install python3
+    else
+        print_error "OS non supporté. Installez Python 3 manuellement."
+        exit 1
+    fi
 fi
 
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
@@ -81,22 +92,168 @@ print_success "Python $PYTHON_VERSION détecté"
 
 print_step "Vérification de FFmpeg..."
 
-if ! command -v ffmpeg &> /dev/null; then
+# Fonction pour installer FFmpeg localement (sans sudo)
+install_ffmpeg_local() {
+    print_info "Installation locale de FFmpeg (sans sudo)..."
+    
+    INSTALL_DIR="$HOME/.local/ffmpeg"
+    
+    # Vérifier si FFmpeg local existe déjà
+    if [ -d "$INSTALL_DIR" ]; then
+        EXISTING_FFMPEG=$(find "$INSTALL_DIR" -maxdepth 2 -type f -name "ffmpeg" 2>/dev/null | head -n 1)
+        if [ -n "$EXISTING_FFMPEG" ] && [ -x "$EXISTING_FFMPEG" ]; then
+            FFMPEG_VERSION=$("$EXISTING_FFMPEG" -version 2>&1 | head -n1 | awk '{print $3}')
+            print_success "FFmpeg $FFMPEG_VERSION déjà installé localement"
+            print_info "Emplacement: $EXISTING_FFMPEG"
+            return 0
+        fi
+    fi
+    
+    mkdir -p "$INSTALL_DIR"
+    
+    # Sauvegarder le répertoire courant
+    CURRENT_DIR=$(pwd)
+    
+    # Détecter l'architecture
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then
+        FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz"
+    else
+        print_error "Architecture non supportée: $ARCH"
+        return 1
+    fi
+    
+    print_info "Téléchargement de FFmpeg..."
+    cd "$INSTALL_DIR"
+    
+    if command -v wget &> /dev/null; then
+        wget -q --show-progress "$FFMPEG_URL" -O ffmpeg.tar.xz
+    elif command -v curl &> /dev/null; then
+        curl -L "$FFMPEG_URL" -o ffmpeg.tar.xz
+    else
+        print_error "wget ou curl requis pour télécharger FFmpeg"
+        cd "$CURRENT_DIR"  # Restaurer le répertoire
+        return 1
+    fi
+    
+    print_info "Extraction..."
+    tar -xf ffmpeg.tar.xz 2>/dev/null
+    rm -f ffmpeg.tar.xz
+    
+    # Trouver le dossier extrait
+    FFMPEG_DIR=$(find . -maxdepth 1 -type d -name "ffmpeg-*-static" | head -n 1)
+    
+    if [ -z "$FFMPEG_DIR" ]; then
+        print_error "Erreur lors de l'extraction"
+        cd "$CURRENT_DIR"  # Restaurer le répertoire
+        return 1
+    fi
+    
+    # Restaurer le répertoire courant AVANT de vérifier
+    cd "$CURRENT_DIR"
+    
+    if [ -f "$INSTALL_DIR/$FFMPEG_DIR/ffmpeg" ]; then
+        FFMPEG_VERSION=$("$INSTALL_DIR/$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -n1 | awk '{print $3}')
+        print_success "FFmpeg $FFMPEG_VERSION installé localement"
+        print_info "Emplacement: $INSTALL_DIR/$FFMPEG_DIR"
+        return 0
+    else
+        print_error "FFmpeg non trouvé après extraction"
+        return 1
+    fi
+}
+
+# Vérifier si FFmpeg est déjà installé
+if command -v ffmpeg &> /dev/null; then
+    FFMPEG_VERSION=$(ffmpeg -version 2>&1 | head -n1 | awk '{print $3}')
+    print_success "FFmpeg $FFMPEG_VERSION détecté (système)"
+else
     print_warning "FFmpeg n'est pas installé"
     echo ""
-    print_info "FFmpeg est requis pour la conversion MP3"
-    print_info "Installation sur WSL/Ubuntu:"
-    echo "  sudo apt update"
-    echo "  sudo apt install ffmpeg"
-    echo ""
-    read -p "Voulez-vous continuer sans FFmpeg ? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
+    
+    # Détecter l'OS
+    OS="unknown"
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        OS="linux"
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        OS="macos"
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        OS="windows"
     fi
-else
-    FFMPEG_VERSION=$(ffmpeg -version 2>&1 | head -n1 | awk '{print $3}')
-    print_success "FFmpeg $FFMPEG_VERSION détecté"
+    
+    print_info "OS détecté: $OS"
+    echo ""
+    
+    # Proposer les options d'installation
+    echo -e "${CYAN}Options d'installation FFmpeg:${NC}"
+    echo "  1. Installation système (avec sudo) - Recommandé"
+    echo "  2. Installation locale (sans sudo) - Pour école/entreprise"
+    echo "  3. Ignorer (installer manuellement plus tard)"
+    echo ""
+    read -p "Choisissez une option (1/2/3): " -n 1 -r FFMPEG_CHOICE
+    echo ""
+    echo ""
+    
+    case $FFMPEG_CHOICE in
+        1)
+            print_step "Installation système de FFmpeg..."
+            
+            if [ "$OS" = "linux" ]; then
+                # Détecter la distribution
+                if [ -f /etc/debian_version ]; then
+                    sudo apt update && sudo apt install -y ffmpeg
+                elif [ -f /etc/redhat-release ]; then
+                    sudo yum install -y ffmpeg || sudo dnf install -y ffmpeg
+                elif [ -f /etc/arch-release ]; then
+                    sudo pacman -S --noconfirm ffmpeg
+                else
+                    print_warning "Distribution non reconnue"
+                    sudo apt install -y ffmpeg || print_error "Installation échouée"
+                fi
+            elif [ "$OS" = "macos" ]; then
+                if command -v brew &> /dev/null; then
+                    brew install ffmpeg
+                else
+                    print_error "Homebrew non installé. Installez-le depuis: https://brew.sh"
+                    exit 1
+                fi
+            else
+                print_error "OS non supporté pour l'installation automatique"
+                exit 1
+            fi
+            
+            # Vérifier l'installation
+            if command -v ffmpeg &> /dev/null; then
+                FFMPEG_VERSION=$(ffmpeg -version 2>&1 | head -n1 | awk '{print $3}')
+                print_success "FFmpeg $FFMPEG_VERSION installé"
+            else
+                print_error "Installation échouée"
+                exit 1
+            fi
+            ;;
+        2)
+            install_ffmpeg_local
+            if [ $? -ne 0 ]; then
+                print_error "Installation locale échouée"
+                exit 1
+            fi
+            ;;
+        3)
+            print_warning "FFmpeg non installé"
+            print_info "La conversion MP3 ne fonctionnera pas"
+            print_info "Installez FFmpeg manuellement:"
+            echo "  - Linux: sudo apt install ffmpeg"
+            echo "  - macOS: brew install ffmpeg"
+            echo "  - Ou relancez ce script plus tard"
+            echo ""
+            ;;
+        *)
+            print_error "Option invalide"
+            exit 1
+            ;;
+    esac
 fi
 
 # ============================================
@@ -106,22 +263,13 @@ fi
 print_step "Création de l'environnement virtuel..."
 
 if [ -d "venv" ]; then
-    print_warning "L'environnement virtuel existe déjà"
-    read -p "Voulez-vous le recréer ? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_step "Suppression de l'ancien environnement..."
-        rm -rf venv
-        print_step "Création d'un nouvel environnement..."
-        python3 -m venv venv
-        print_success "Environnement virtuel recréé"
-    else
-        print_info "Utilisation de l'environnement existant"
-    fi
-else
-    python3 -m venv venv
-    print_success "Environnement virtuel créé"
+    print_info "Environnement virtuel existant détecté"
+    print_step "Suppression et recréation..."
+    rm -rf venv
 fi
+
+python3 -m venv venv
+print_success "Environnement virtuel créé"
 
 # ============================================
 # 4. Activer l'environnement virtuel
@@ -155,17 +303,20 @@ print_success "pip $PIP_VERSION"
 
 print_step "Installation des dépendances..."
 
-if [ ! -f "requirements.txt" ]; then
-    print_error "Le fichier requirements.txt est introuvable"
+# Vérifier que requirements.txt existe dans le répertoire courant
+if [ ! -f "$SCRIPT_DIR/requirements.txt" ]; then
+    print_error "Le fichier requirements.txt est introuvable dans $SCRIPT_DIR"
+    print_info "Contenu du répertoire:"
+    ls -la "$SCRIPT_DIR"
     exit 1
 fi
 
 echo ""
 print_info "Dépendances à installer:"
-cat requirements.txt | grep -v '^#' | grep -v '^$' | sed 's/^/  - /'
+cat "$SCRIPT_DIR/requirements.txt" | grep -v '^#' | grep -v '^$' | sed 's/^/  - /'
 echo ""
 
-pip install -r requirements.txt
+pip install -r "$SCRIPT_DIR/requirements.txt"
 
 print_success "Dépendances installées"
 
@@ -186,7 +337,7 @@ echo ""
 
 print_step "Création des dossiers..."
 
-cd ..
+cd "$SCRIPT_DIR/.."
 
 mkdir -p temp
 mkdir -p music
@@ -199,7 +350,7 @@ print_success "Dossiers créés (temp/, music/)"
 
 print_step "Test de l'importation des modules..."
 
-cd python-server
+cd "$SCRIPT_DIR"
 
 python3 << EOF
 try:
@@ -228,22 +379,20 @@ echo ""
 print_header "✅ Installation terminée avec succès !"
 
 echo ""
-print_info "Pour démarrer le serveur:"
-echo -e "  ${GREEN}source venv/bin/activate${NC}"
-echo -e "  ${GREEN}python app.py${NC}"
+print_info "🚀 Pour démarrer SongSurf:"
+echo -e "  ${GREEN}./start.sh${NC}"
 echo ""
 
-print_info "Pour désactiver l'environnement virtuel:"
-echo -e "  ${GREEN}deactivate${NC}"
+print_info "📱 Ensuite:"
+echo "  1. Installez l'extension Chrome"
+echo "  2. Allez sur YouTube Music"
+echo "  3. Cliquez sur le widget SongSurf"
+echo "  4. Téléchargez vos musiques !"
 echo ""
 
-print_info "Endpoints disponibles:"
-echo "  GET  http://localhost:5000/ping"
-echo "  POST http://localhost:5000/download"
-echo "  GET  http://localhost:5000/status"
-echo "  POST http://localhost:5000/cleanup"
-echo "  GET  http://localhost:5000/stats"
+print_info "🌐 Dashboard:"
+echo "  http://localhost:8080"
 echo ""
 
-print_success "Prêt à télécharger de la musique ! 🎵"
+print_success "Installation terminée ! Prêt à télécharger de la musique ! 🎵"
 echo ""
