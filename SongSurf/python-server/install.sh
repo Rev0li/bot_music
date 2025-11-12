@@ -97,7 +97,22 @@ install_ffmpeg_local() {
     print_info "Installation locale de FFmpeg (sans sudo)..."
     
     INSTALL_DIR="$HOME/.local/ffmpeg"
+    
+    # Vérifier si FFmpeg local existe déjà
+    if [ -d "$INSTALL_DIR" ]; then
+        EXISTING_FFMPEG=$(find "$INSTALL_DIR" -maxdepth 2 -type f -name "ffmpeg" 2>/dev/null | head -n 1)
+        if [ -n "$EXISTING_FFMPEG" ] && [ -x "$EXISTING_FFMPEG" ]; then
+            FFMPEG_VERSION=$("$EXISTING_FFMPEG" -version 2>&1 | head -n1 | awk '{print $3}')
+            print_success "FFmpeg $FFMPEG_VERSION déjà installé localement"
+            print_info "Emplacement: $EXISTING_FFMPEG"
+            return 0
+        fi
+    fi
+    
     mkdir -p "$INSTALL_DIR"
+    
+    # Sauvegarder le répertoire courant
+    CURRENT_DIR=$(pwd)
     
     # Détecter l'architecture
     ARCH=$(uname -m)
@@ -119,6 +134,7 @@ install_ffmpeg_local() {
         curl -L "$FFMPEG_URL" -o ffmpeg.tar.xz
     else
         print_error "wget ou curl requis pour télécharger FFmpeg"
+        cd "$CURRENT_DIR"  # Restaurer le répertoire
         return 1
     fi
     
@@ -131,11 +147,15 @@ install_ffmpeg_local() {
     
     if [ -z "$FFMPEG_DIR" ]; then
         print_error "Erreur lors de l'extraction"
+        cd "$CURRENT_DIR"  # Restaurer le répertoire
         return 1
     fi
     
-    if [ -f "$FFMPEG_DIR/ffmpeg" ]; then
-        FFMPEG_VERSION=$("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -n1 | awk '{print $3}')
+    # Restaurer le répertoire courant AVANT de vérifier
+    cd "$CURRENT_DIR"
+    
+    if [ -f "$INSTALL_DIR/$FFMPEG_DIR/ffmpeg" ]; then
+        FFMPEG_VERSION=$("$INSTALL_DIR/$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -n1 | awk '{print $3}')
         print_success "FFmpeg $FFMPEG_VERSION installé localement"
         print_info "Emplacement: $INSTALL_DIR/$FFMPEG_DIR"
         return 0
@@ -283,17 +303,20 @@ print_success "pip $PIP_VERSION"
 
 print_step "Installation des dépendances..."
 
-if [ ! -f "requirements.txt" ]; then
-    print_error "Le fichier requirements.txt est introuvable"
+# Vérifier que requirements.txt existe dans le répertoire courant
+if [ ! -f "$SCRIPT_DIR/requirements.txt" ]; then
+    print_error "Le fichier requirements.txt est introuvable dans $SCRIPT_DIR"
+    print_info "Contenu du répertoire:"
+    ls -la "$SCRIPT_DIR"
     exit 1
 fi
 
 echo ""
 print_info "Dépendances à installer:"
-cat requirements.txt | grep -v '^#' | grep -v '^$' | sed 's/^/  - /'
+cat "$SCRIPT_DIR/requirements.txt" | grep -v '^#' | grep -v '^$' | sed 's/^/  - /'
 echo ""
 
-pip install -r requirements.txt
+pip install -r "$SCRIPT_DIR/requirements.txt"
 
 print_success "Dépendances installées"
 
@@ -314,7 +337,7 @@ echo ""
 
 print_step "Création des dossiers..."
 
-cd ..
+cd "$SCRIPT_DIR/.."
 
 mkdir -p temp
 mkdir -p music
@@ -327,7 +350,7 @@ print_success "Dossiers créés (temp/, music/)"
 
 print_step "Test de l'importation des modules..."
 
-cd python-server
+cd "$SCRIPT_DIR"
 
 python3 << EOF
 try:
