@@ -5,7 +5,7 @@ app.py - Serveur Flask pour GrabSong V3
 
 FONCTIONNALITÉ:
   - Serveur HTTP qui reçoit les requêtes de l'extension Chrome
-  - Télécharge les vidéos YouTube via yt-dlp
+  - Télécharge les vidéos YT via yt-dlp
   - Organise automatiquement les fichiers MP3
   - Retourne le statut en temps réel
   
@@ -32,7 +32,7 @@ import queue
 from collections import deque
 
 # Import des modules
-from downloader import YouTubeDownloader
+from downloader import YTDownloader
 from organizer import MusicOrganizer
 
 # ============================================
@@ -76,7 +76,7 @@ print(f"📁 Music: {MUSIC_DIR}")
 print(f"📁 Artist Photos: {ARTIST_PHOTOS_DIR}")
 
 # Instances
-downloader = YouTubeDownloader(TEMP_DIR, MUSIC_DIR)
+downloader = YTDownloader(TEMP_DIR, MUSIC_DIR)
 organizer = MusicOrganizer(MUSIC_DIR)
 
 # Système de queue
@@ -122,6 +122,15 @@ def ping():
         'message': 'GrabSong V3 server is running',
         'timestamp': datetime.now().isoformat()
     })
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check pour Docker"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat()
+    }), 200
 
 
 @app.route('/status', methods=['GET'])
@@ -443,7 +452,7 @@ def upload_artist_photo():
 
 @app.route('/api/extract-metadata', methods=['POST'])
 def extract_metadata():
-    """Extract metadata from YouTube URL using yt-dlp"""
+    """Extract metadata from YT URL using yt-dlp"""
     try:
         data = request.get_json()
         url = data.get('url')
@@ -895,7 +904,7 @@ if __name__ == '__main__':
     print("🚀 Serveur démarré sur http://localhost:8080")
     print("="*60)
     print("\n⚠️  IMPORTANT - Navigateurs:")
-    print("   🛡️  Brave: Désactivez Shields pour YouTube Music")
+    print("   🛡️  Brave: Désactivez Shields pour YT Music")
     print("   🛡️  Chrome: Désactivez le bloqueur de pub si nécessaire")
     print("   ✅ CORS configuré pour accepter toutes les origines")
     print("="*60)
@@ -923,8 +932,10 @@ if __name__ == '__main__':
     log_message('INFO', 'Queue worker démarré')
     
     # Lancer le serveur
+    # En Docker, écouter sur 0.0.0.0 pour accepter les connexions externes
+    host = '0.0.0.0' if Path(__file__).parent == Path('/app') else 'localhost'
     app.run(
-        host='localhost',
+        host=host,
         port=8080,
         debug=True,
         use_reloader=False  # Éviter le double démarrage en mode debug

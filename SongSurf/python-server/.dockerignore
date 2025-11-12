@@ -1,0 +1,38 @@
+# ============================================
+# .dockerignore - Fichiers à exclure du build
+# ============================================
+
+# Environnement virtuel Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Scripts d'installation (non nécessaires dans Docker)
+install.sh
+start.sh
+check-install.sh
+
+# Fichiers de développement
+.git/
+.gitignore
+*.md
+LICENSE
+
+# Fichiers temporaires
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Données (seront montées via volumes)
+temp/
+music/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

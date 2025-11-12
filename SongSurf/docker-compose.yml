@@ -1,0 +1,39 @@
+# ============================================
+# 🎵 SongSurf - Docker Compose
+# ============================================
+# Orchestration complète du projet
+# ============================================
+
+version: '3.8'
+
+services:
+  # Serveur Python Flask
+  songsurf-server:
+    build:
+      context: ./python-server
+      dockerfile: Dockerfile
+    container_name: songsurf-server
+    ports:
+      - "8080:8080"
+    volumes:
+      # Monter les dossiers de données pour persister les téléchargements
+      - ./temp:/data/temp
+      - ./music:/data/music
+      # Optionnel: monter le code en développement (hot reload)
+      # - ./python-server:/app
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - songsurf-network
+
+networks:
+  songsurf-network:
+    driver: bridge

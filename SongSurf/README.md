@@ -1,176 +1,196 @@
 # 🎵 SongSurf
 
-Téléchargez facilement vos musiques depuis YouTube Music avec une extension Chrome et un serveur Python.
-
-## 🚀 Installation Rapide
-
-### 🐳 Méthode 1 : Docker (Recommandé)
-
-**Aucune installation manuelle, tout est inclus !**
-
-```bash
-./docker-start.sh
-```
-
-C'est tout ! Le serveur démarre sur **http://localhost:8080**
-
-Pour arrêter :
-```bash
-./docker-stop.sh
-```
+Organise automatiquement ta musique avec une extension Chrome et un serveur Python.
 
 ---
 
-### 🐍 Méthode 2 : Installation Python Classique
+## ✨ Fonctionnalités
 
-#### 1. Installer le serveur Python
-
-```bash
-cd python-server
-./install.sh
-```
-
-Le script installe **automatiquement** :
-- ✅ Python 3 et environnement virtuel
-- ✅ FFmpeg (détection OS + choix d'installation)
-  - Avec sudo (système) - Recommandé
-  - Sans sudo (local) - Pour école/entreprise
-- ✅ Toutes les dépendances Python
-
-#### 2. Démarrer le serveur
-
-```bash
-./start.sh
-```
-
-Le serveur démarre sur **http://localhost:8080**
+- 📁 **Organisation automatique** par Artiste/Album
+- 🎨 **Métadonnées ID3** complètes (titre, artiste, album, pochette)
+- 📊 **Dashboard web** pour gérer ta bibliothèque
+- 🔄 **Queue de téléchargement** pour les albums complets
+- 🖼️ **Photos d'artistes** personnalisables
+- 🐳 **Docker** pour installation simplifiée
 
 ---
 
-## 📱 Installation Extension Chrome
+## 🚀 Installation Rapide (Docker - Recommandé)
 
-1. Ouvrez Chrome et allez sur `chrome://extensions/`
-2. Activez le **Mode développeur** (en haut à droite)
-3. Cliquez sur **Charger l'extension non empaquetée**
-4. Sélectionnez le dossier `chrome-extension/`
+### Prérequis
+- Docker installé ([Installation](https://docs.docker.com/get-docker/))
+
+### Démarrage
+```bash
+./start-docker.sh
+```
+
+Le serveur sera accessible sur **http://localhost:8080**
+
+📖 **Guide complet** : [DOCKER.md](DOCKER.md)
+
+
+## 📱 Installation de l'Extension Chrome
+
+1. Ouvre Chrome et va dans `chrome://extensions/`
+2. Active le **Mode développeur** (en haut à droite)
+3. Clique sur **Charger l'extension non empaquetée**
+4. Sélectionne le dossier `chrome-extension/`
+5. L'icône SongSurf apparaît dans ta barre d'outils
+
+---
 
 ## 🎯 Utilisation
 
-1. **Allez sur YouTube Music** (music.youtube.com)
-2. **Cliquez sur le widget SongSurf** (en bas à droite)
-3. **Téléchargez** :
-   - 🎵 Une chanson
-   - 💿 Un album complet
-   - 📋 Une playlist
+1. **Démarre le serveur** (Docker)
+2. **Ouvre YT Music** dans Chrome
+3. **Clique sur l'extension SongSurf**
 
-Les musiques sont automatiquement :
-- ✅ Téléchargées en MP3
-- ✅ Organisées par Artiste/Album
-- ✅ Taguées avec métadonnées
-- ✅ Avec pochette intégrée
+---
 
-## 📊 Dashboard
+## 📊 Dashboard Web
 
-Accédez au dashboard sur **http://localhost:8080** pour :
-- 📚 **Navigation 2 niveaux** - Artistes → Albums → Chansons
-- 📷 **Photos d'artistes** - Upload vos propres images
-- 🎴 **Flip cards 3D** - Cliquez sur un album pour voir les chansons
-- 🔍 **Recherche en temps réel** - Filtrez par titre, artiste ou album
-- 📈 **Statistiques** - Nombre d'artistes, albums et chansons
-- 🎨 **Design moderne** - Glassmorphism avec animations fluides
+Le dashboard te permet de :
+- 📁 Voir ta bibliothèque organisée
+- 🎨 Ajouter des photos d'artistes
+- 📊 Voir les statistiques
 
-## 🛠️ Commandes Utiles
+---
 
-### 🐳 Avec Docker
+## 🐳 Docker vs Installation Manuelle
 
-```bash
-# Démarrer
-./docker-start.sh
+| Aspect | Docker | Manuel |
+|--------|--------|--------|
+| Installation | 1 commande | 5-10 minutes |
+| Dépendances | Juste Docker | Python, venv, FFmpeg |
+| Portabilité | ✅ Partout | ⚠️ Dépend du système |
+| Mise à jour | `docker-compose build` | Réinstaller |
+| Isolation | ✅ Conteneur isolé | ⚠️ Partage l'environnement |
 
-# Arrêter
-./docker-stop.sh
-
-# Voir les logs
-docker compose logs -f
-
-# Redémarrer
-docker compose restart
-
-# Statut
-docker compose ps
-```
-
-### 🐍 Sans Docker
-
-```bash
-# Installer/Réinstaller
-cd python-server
-./install.sh
-
-# Démarrer le serveur
-./start.sh
-
-# Arrêter le serveur
-Ctrl+C
-```
+---
 
 ## 📁 Structure du Projet
 
 ```
 SongSurf/
-├── python-server/          # Serveur Flask
-│   ├── install.sh         # Installation automatique
-│   ├── start.sh           # Démarrage automatique
-│   ├── app.py             # Serveur principal
-│   ├── downloader.py      # Téléchargement yt-dlp
-│   └── organizer.py       # Organisation des fichiers
-│
 ├── chrome-extension/       # Extension Chrome
-│   ├── manifest.json      # Configuration
-│   ├── content.js         # Script principal
-│   └── background.js      # Service worker
-│
-├── music/                  # Bibliothèque musicale
-└── temp/                   # Fichiers temporaires
+│   ├── manifest.json
+│   ├── popup.html
+│   └── popup.js
+├── python-server/          # Serveur Flask
+│   ├── app.py             # API principale
+│   ├── downloader.py      # Téléchargement YT
+│   ├── organizer.py       # Organisation des fichiers
+│   ├── Dockerfile         # Image Docker
+│   ├── requirements.txt   # Dépendances Python
+│   ├── templates/         # Templates HTML
+│   └── static/            # CSS/JS du dashboard
+├── docker-compose.yml      # Orchestration Docker
+├── start-docker.sh         # Démarrage Docker
+├── temp/                   # Téléchargements temporaires
+└── music/                  # Bibliothèque musicale
+    └── artist_photos/      # Photos d'artistes
 ```
-
-## 🔧 Prérequis
-
-### Avec Docker (Recommandé)
-- **Docker** et **Docker Compose**
-- **Chrome/Edge** (pour l'extension)
-
-### Sans Docker
-- **Python 3.8+**
-- **FFmpeg** (installé automatiquement)
-- **Chrome/Edge** (pour l'extension)
-
-### 🏫 Sans Droits Administrateur (École/Entreprise)
-
-Le script `install.sh` propose automatiquement une **installation locale** de FFmpeg si vous n'avez pas les droits sudo. Choisissez simplement l'option 2 lors de l'installation !
-
-## 🐳 Pourquoi Docker ?
-
-- ✅ **Aucune installation manuelle** - Python, FFmpeg, tout est inclus
-- ✅ **Pas de pollution** - Rien n'est installé sur votre PC
-- ✅ **Portable** - Fonctionne sur Linux, Mac, Windows
-- ✅ **Isolation** - Pas de conflit avec vos autres projets
-- ✅ **Mise à jour facile** - Un simple `docker compose pull`
-
-## 📝 Notes
-
-- Les musiques sont sauvegardées dans `music/Artiste/Album/`
-- Le serveur doit tourner pour que l'extension fonctionne
-- Le widget est déplaçable (drag & drop)
-- La progression s'affiche en temps réel
-- Avec Docker, vos musiques restent sur votre PC (volume monté)
-
-## 🚀 Développé avec
-
-- **Backend** : Python, Flask, yt-dlp, Mutagen
-- **Frontend** : JavaScript, HTML, CSS
-- **Extension** : Chrome Extension API
 
 ---
 
-**Prêt à télécharger de la musique ! 🎵**
+## 🔧 Configuration
+
+### Changer le Port (Docker)
+
+Édite `docker-compose.yml` :
+```yaml
+ports:
+  - "9000:8080"  # Port 9000 au lieu de 8080
+```
+
+---
+
+## 📋 Commandes Utiles
+
+### Docker
+```bash
+./start-docker.sh           # Démarrer
+docker-compose logs -f      # Voir les logs
+docker-compose stop         # Arrêter
+docker-compose restart      # Redémarrer
+docker-compose down         # Arrêter et supprimer
+```
+---
+
+## 🐛 Dépannage
+
+### Le serveur ne démarre pas (Docker)
+```bash
+docker-compose logs songsurf-server
+docker-compose build --no-cache
+```
+
+### L'extension ne se connecte pas
+1. Vérifie que le serveur tourne : http://localhost:8080
+2. Vérifie le port dans l'extension (popup.js)
+3. Désactive les bloqueurs de pub sur YT Music
+
+### Port déjà utilisé
+```bash
+# Trouver le processus
+sudo lsof -i :8080
+
+# Ou change le port (voir Configuration)
+```
+
+---
+
+## 🔐 Sécurité
+
+⚠️ **Important** :
+- Le serveur est accessible uniquement en local (`localhost:8080`)
+- N'expose pas le serveur sur Internet sans authentification
+- Les téléchargements sont pour usage personnel uniquement
+
+---
+
+## 📝 Technologies
+
+- **Backend** : Python 3.11, Flask, yt-dlp, mutagen
+- **Frontend** : HTML5, CSS3, JavaScript (Vanilla)
+- **Extension** : Chrome Extension API
+- **Conversion** : FFmpeg
+- **Conteneurisation** : Docker
+
+---
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! N'hésite pas à :
+- 🐛 Signaler des bugs
+- 💡 Proposer des fonctionnalités
+- 🔧 Soumettre des pull requests
+
+---
+
+## 📄 Licence
+
+MIT License - Voir [LICENSE](LICENSE)
+
+---
+
+## 📚 Documentation
+
+- **Guide Docker** : [DOCKER.md](DOCKER.md)
+- **Migration Docker** : [MIGRATION-DOCKER.md](MIGRATION-DOCKER.md)
+
+---
+
+## ⚠️ Avertissement
+
+Ce projet est destiné à un usage personnel uniquement. Respecte les droits d'auteur et les conditions d'utilisation.
+
+---
+
+## 🎉 Profite de ta musique !
+
+Créé avec ❤️ pour les amateurs de musique
+
+**Version** : 3.0 (Docker)  
+**Dernière mise à jour** : Novembre 2025

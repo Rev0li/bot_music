@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SongSurf",
   "version": "4.0.0",
-  "description": "Télécharge de la musique depuis YouTube Music via yt-dlp - Version simplifiée",
+  "description": "Télécharge de la musique depuis YT Music via yt-dlp - Version simplifiée",
   "permissions": [
     "activeTab",
     "storage"

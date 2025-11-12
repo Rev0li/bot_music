@@ -2,7 +2,7 @@
  * content-simple.js - SongSurf Extension Simplifiée
  * 
  * WORKFLOW SIMPLIFIÉ:
- *   1. Récupérer l'URL de la page YouTube Music
+ *   1. Récupérer l'URL de la page YT Music
  *   2. Envoyer au backend pour extraction des métadonnées
  *   3. Afficher un formulaire de confirmation (optionnel)
  *   4. Lancer le téléchargement
@@ -39,7 +39,7 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Détecte le type de page YouTube Music
+// Détecte le type de page YT Music
 function detectPageType() {
   const url = window.location.href;
   
@@ -102,7 +102,7 @@ async function extractMetadata(url, timeoutMs = 30000) {
     if (error.message === 'timeout') {
       return { 
         success: false, 
-        error: 'Timeout: Vérifiez qu\'une musique est chargée sur YouTube Music',
+        error: 'Timeout: Vérifiez qu\'une musique est chargée sur YT Music',
         errorType: 'timeout'
       };
     }
@@ -854,7 +854,7 @@ function showDetailedError(serverResult) {
     errorTitle = '⏱️ Timeout';
     errorDetails = 'L\'extraction des métadonnées a pris trop de temps.';
     solutions = [
-      '1️⃣ <strong>Lancez une musique</strong> sur YouTube Music',
+      '1️⃣ <strong>Lancez une musique</strong> sur YT Music',
       '2️⃣ Attendez que la page soit complètement chargée',
       '3️⃣ Vérifiez votre connexion internet',
       '4️⃣ Réessayez dans quelques secondes'
@@ -1099,7 +1099,7 @@ async function handleDownload() {
   
   // Vérifier que c'est une URL valide
   if (!url.includes('music.youtube.com/watch')) {
-    showStatus('⚠️ Veuillez ouvrir une chanson sur YouTube Music', 'warning');
+    showStatus('⚠️ Veuillez ouvrir une chanson sur YT Music', 'warning');
     downloadBtn.disabled = false;
     downloadBtn.style.opacity = '1';
     downloadBtn.style.cursor = 'pointer';
@@ -1267,7 +1267,7 @@ function onUrlChange() {
   }
 }
 
-// Observer les changements d'URL (YouTube Music est une SPA)
+// Observer les changements d'URL (YT Music est une SPA)
 function observeUrlChanges() {
   // Méthode 1: MutationObserver sur le body
   const observer = new MutationObserver(() => {

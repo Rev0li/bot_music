@@ -33,7 +33,7 @@ function updateStats(stats) {
   const albumsEl = document.getElementById('total-albums');
   const songsEl = document.getElementById('total-songs');
   
-  if (artistsEl) artistsEl.textContent = stats.artists || 0;
+  if (artistsEl) artistsEl.textContent = stats.artists -1 || 0;
   if (albumsEl) albumsEl.textContent = stats.albums || 0;
   if (songsEl) songsEl.textContent = stats.songs || 0;
 }

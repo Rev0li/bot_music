@@ -4,7 +4,7 @@
 downloader.py - Module de téléchargement avec yt-dlp
 
 FONCTIONNALITÉ:
-  - Télécharge les vidéos YouTube en MP3 via yt-dlp
+  - Télécharge les vidéos YT en MP3 via yt-dlp
   - Gestion de la progression en temps réel
   - Conversion automatique en MP3 (via FFmpeg)
   - Gestion des erreurs robuste
@@ -65,8 +65,8 @@ class DownloadProgress:
         }
 
 
-class YouTubeDownloader:
-    """Téléchargeur YouTube avec yt-dlp"""
+class YTDownloader:
+    """Téléchargeur YT avec yt-dlp"""
     
     def __init__(self, temp_dir, music_dir):
         self.temp_dir = Path(temp_dir)
@@ -82,10 +82,10 @@ class YouTubeDownloader:
     
     def download(self, url, metadata):
         """
-        Télécharge une vidéo YouTube en MP3
+        Télécharge une vidéo YT en MP3
         
         Args:
-            url (str): URL YouTube ou YouTube Music
+            url (str): URL YT ou YT Music
             metadata (dict): {artist, album, title, year}
             
         Returns:
@@ -95,9 +95,9 @@ class YouTubeDownloader:
             print(f"\n🎵 Téléchargement: {metadata.get('title', 'Unknown')}")
             print(f"   URL originale: {url}")
             
-            # Convertir l'URL YouTube Music en URL YouTube classique
+            # Convertir l'URL YT Music en URL YT classique
             if 'music.youtube.com' in url:
-                # Extraire le video ID de l'URL YouTube Music
+                # Extraire le video ID de l'URL YT Music
                 import re
                 video_id_match = re.search(r'[?&]v=([^&]+)', url)
                 if video_id_match:
@@ -114,7 +114,7 @@ class YouTubeDownloader:
             # Nom de fichier temporaire
             temp_filename = f"{metadata.get('artist', 'Unknown')} - {metadata.get('title', 'Unknown')}"
             
-            # Configuration yt-dlp (optimisée pour YouTube Music)
+            # Configuration yt-dlp (optimisée pour YT Music)
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'postprocessors': [{
@@ -176,10 +176,10 @@ class YouTubeDownloader:
     
     def extract_metadata(self, url):
         """
-        Extrait les métadonnées d'une vidéo YouTube sans la télécharger
+        Extrait les métadonnées d'une vidéo YT sans la télécharger
         
         Args:
-            url (str): URL YouTube ou YouTube Music
+            url (str): URL YT ou YT Music
             
         Returns:
             dict: {success, metadata: {title, artist, album, year, thumbnail_url}, error}
@@ -187,7 +187,7 @@ class YouTubeDownloader:
         try:
             print(f"\n🔍 Extraction des métadonnées: {url}")
             
-            # Convertir l'URL YouTube Music en URL YouTube classique
+            # Convertir l'URL YT Music en URL YT classique
             if 'music.youtube.com' in url:
                 import re
                 video_id_match = re.search(r'[?&]v=([^&]+)', url)
@@ -257,7 +257,7 @@ class YouTubeDownloader:
     
     def extract_playlist_metadata(self, url):
         """
-        Extrait les métadonnées d'un album ou playlist YouTube Music
+        Extrait les métadonnées d'un album ou playlist YT Music
         
         Args:
             url (str): URL de l'album ou playlist
@@ -537,8 +537,8 @@ class YouTubeDownloader:
 
 # Test du module
 if __name__ == '__main__':
-    # Test avec une vidéo YouTube
-    downloader = YouTubeDownloader('temp', 'music')
+    # Test avec une vidéo YT
+    downloader = YTDownloader('temp', 'music')
     
     result = downloader.download(
         url='https://www.youtube.com/watch?v=dQw4w9WgXcQ',
